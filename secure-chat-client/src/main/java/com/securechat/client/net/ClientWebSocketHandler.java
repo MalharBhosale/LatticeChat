@@ -41,6 +41,7 @@ public class ClientWebSocketHandler implements WebSocket.Listener {
     private Consumer<UserPresenceDto> presenceListener;
     private Runnable onConnectedCallback;
     private Consumer<String> onErrorCallback;
+    private volatile boolean connected = false;
 
     public ClientWebSocketHandler(String wsUrl, String jwtToken) {
         this.wsUrl = wsUrl.endsWith("/") ? wsUrl.substring(0, wsUrl.length() - 1) : wsUrl;
@@ -63,6 +64,13 @@ public class ClientWebSocketHandler implements WebSocket.Listener {
 
     public void setOnConnected(Runnable callback) {
         this.onConnectedCallback = callback;
+        if (connected && callback != null) {
+            callback.run();
+        }
+    }
+
+    public boolean isConnected() {
+        return connected;
     }
 
     public void setOnError(Consumer<String> callback) {
@@ -131,6 +139,7 @@ public class ClientWebSocketHandler implements WebSocket.Listener {
 
             if (frame.startsWith("CONNECTED")) {
                 log.info("STOMP handshake CONNECTED");
+                this.connected = true;
                 subscribe("sub-messages", "/user/queue/messages");
                 subscribe("sub-receipts", "/user/queue/receipts");
                 subscribe("sub-presence", "/topic/presence");
@@ -190,18 +199,21 @@ public class ClientWebSocketHandler implements WebSocket.Listener {
     @Override
     public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
         log.info("WebSocket closed: {} ({})", reason, statusCode);
+        this.connected = false;
         return null;
     }
 
     @Override
     public void onError(WebSocket webSocket, Throwable error) {
         log.error("WebSocket transport error: {}", error.getMessage());
+        this.connected = false;
         if (onErrorCallback != null) {
             onErrorCallback.accept(error.getMessage());
         }
     }
 
     public void disconnect() {
+        this.connected = false;
         if (webSocket != null) {
             webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "Client disconnecting");
         }

@@ -7,6 +7,7 @@ import com.securechat.client.net.ClientWebSocketHandler;
 import com.securechat.client.storage.LocalStorageService;
 import com.securechat.common.crypto.KeyExchangeService.KemKeyPair;
 import com.securechat.common.dto.AuthResponse;
+import com.securechat.common.dto.KeyExchangeBundleDto;
 import com.securechat.common.dto.OneTimePrekeyUploadDto;
 import com.securechat.common.dto.PublishKeyBundleRequest;
 import javafx.application.Platform;
@@ -97,11 +98,48 @@ public class LoginController {
                 // Load or generate local keystore
                 File keysFile = getKeystoreFile(username);
                 ClientKeystore keystore;
+                boolean mustPublishKeys = false;
                 if (keysFile.exists()) {
                     keystore = ClientKeystore.loadFromFile(keysFile, password.toCharArray());
                 } else {
                     keystore = ClientKeystore.generateNew(10);
                     keystore.saveToFile(keysFile, password.toCharArray());
+                    mustPublishKeys = true;
+                }
+
+                // Ensure server has our active Post-Quantum public key bundle
+                boolean shouldPublish = mustPublishKeys;
+                if (!shouldPublish) {
+                    try {
+                        KeyExchangeBundleDto remoteBundle = client.getKeyBundle(username);
+                        String currentIdKey = Base64.getEncoder().encodeToString(keystore.getIdentityKey().publicKey());
+                        if (remoteBundle == null || !currentIdKey.equals(remoteBundle.identityKey())) {
+                            shouldPublish = true;
+                        }
+                    } catch (Exception ex) {
+                        shouldPublish = true;
+                    }
+                }
+
+                if (shouldPublish) {
+                    List<OneTimePrekeyUploadDto> opkDtos = new ArrayList<>();
+                    for (Map.Entry<Long, KemKeyPair> entry : keystore.getOneTimePrekeys().entrySet()) {
+                        opkDtos.add(new OneTimePrekeyUploadDto(
+                                entry.getKey().intValue(),
+                                Base64.getEncoder().encodeToString(entry.getValue().publicKey()),
+                                "ML-KEM-768"
+                        ));
+                    }
+
+                    PublishKeyBundleRequest bundleRequest = new PublishKeyBundleRequest(
+                            Base64.getEncoder().encodeToString(keystore.getIdentityKey().publicKey()),
+                            "ML-DSA-65",
+                            Base64.getEncoder().encodeToString(keystore.getSignedPrekey().publicKey()),
+                            "ML-KEM-768",
+                            Base64.getEncoder().encodeToString(keystore.getSignedPrekeySignature()),
+                            opkDtos
+                    );
+                    client.publishKeyBundle(bundleRequest);
                 }
 
                 LocalStorageService storage = LocalStorageService.forUser(username);

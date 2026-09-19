@@ -14,12 +14,6 @@ VALUES
     (3, 'charlie', 'charlie@securechat.internal', '$2a$12$6mCtMXKVYCiXMsqePMfreOo.tp.RfbFleKEkhNfUnbR4PCqVWqwKq', 'Charlie Observer', 'ACTIVE')
 ON DUPLICATE KEY UPDATE `display_name` = VALUES(`display_name`), `password_hash` = VALUES(`password_hash`);
 
--- Insert Seed Key Bundles (Dummy Base64 PQC Public Keys for Seed Demo)
-INSERT INTO `user_key_bundles` (`id`, `user_id`, `identity_key`, `identity_algorithm`, `prekey`, `prekey_algorithm`, `prekey_signature`, `key_version`, `is_active`)
-VALUES
-    (1, 1, 'MIIBtzCCASwGByqGSM49AgEGCSqGSIb3DQEBCwUAA4GBACb...ALICE_ML_DSA_65_PUBKEY...', 'ML-DSA-65', 'MIIBtzCCASwGByqGSM49AgEGCSqGSIb3DQEBCwUAA4GBACb...ALICE_ML_KEM_768_PREKEY...', 'ML-KEM-768', 'MEUCIQ...ALICE_PREKEY_SIGNATURE...', 1, TRUE),
-    (2, 2, 'MIIBtzCCASwGByqGSM49AgEGCSqGSIb3DQEBCwUAA4GBACb...BOB_ML_DSA_65_PUBKEY...', 'ML-DSA-65', 'MIIBtzCCASwGByqGSM49AgEGCSqGSIb3DQEBCwUAA4GBACb...BOB_ML_KEM_768_PREKEY...', 'ML-KEM-768', 'MEUCIQ...BOB_PREKEY_SIGNATURE...', 1, TRUE)
-ON DUPLICATE KEY UPDATE `is_active` = VALUES(`is_active`);
 
 -- Insert Initial Audit Logs
 INSERT INTO `audit_logs` (`user_id`, `event_type`, `ip_address`, `details`)
