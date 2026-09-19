@@ -506,3 +506,178 @@
     -fx-background-radius: 4px;
 }
 
+/* ==========================================================================
+   Security Dashboard & Inspector Styles (Phase 13)
+   ========================================================================== */
+
+.security-dashboard-root {
+    -fx-background-color: #0b0f19;
+}
+
+.dashboard-title {
+    -fx-font-size: 17px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #38bdf8;
+}
+
+.dashboard-subtitle {
+    -fx-font-size: 11.5px;
+    -fx-text-fill: #94a3b8;
+}
+
+.dashboard-tab-pane {
+    -fx-background-color: transparent;
+}
+
+.dashboard-tab-pane .tab-header-area .tab-header-background {
+    -fx-background-color: #0f172a;
+}
+
+.dashboard-tab-pane .tab {
+    -fx-background-color: #1e293b;
+    -fx-background-radius: 6px 6px 0 0;
+    -fx-padding: 4 12;
+}
+
+.dashboard-tab-pane .tab:selected {
+    -fx-background-color: #2563eb;
+}
+
+.dashboard-tab-pane .tab .tab-label {
+    -fx-text-fill: #e2e8f0;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.dashboard-tab-pane .tab:selected .tab-label {
+    -fx-text-fill: #ffffff;
+}
+
+.dashboard-scroll-pane {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.dashboard-scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+
+.tab-content-container {
+    -fx-background-color: transparent;
+}
+
+.session-banner-card {
+    -fx-background-color: rgba(30, 41, 59, 0.7);
+    -fx-background-radius: 10px;
+    -fx-border-color: #334155;
+    -fx-border-radius: 10px;
+    -fx-padding: 10 14;
+}
+
+.session-peer-badge {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #38bdf8;
+}
+
+.unverified-badge {
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f59e0b;
+    -fx-background-color: rgba(245, 158, 11, 0.15);
+    -fx-padding: 3 8;
+    -fx-background-radius: 6px;
+    -fx-border-color: rgba(245, 158, 11, 0.3);
+    -fx-border-radius: 6px;
+}
+
+.verified-badge {
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #10b981;
+    -fx-background-color: rgba(16, 185, 129, 0.15);
+    -fx-padding: 3 8;
+    -fx-background-radius: 6px;
+    -fx-border-color: rgba(16, 185, 129, 0.3);
+    -fx-border-radius: 6px;
+}
+
+.safety-card {
+    -fx-background-color: rgba(15, 23, 42, 0.85);
+    -fx-background-radius: 10px;
+    -fx-border-color: #334155;
+    -fx-border-radius: 10px;
+}
+
+.safety-number {
+    -fx-font-family: 'Consolas', monospace;
+    -fx-font-size: 26px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #34d399;
+    -fx-effect: dropshadow(gaussian, rgba(52, 211, 153, 0.4), 10, 0.2, 0, 0);
+}
+
+.shield-card {
+    -fx-background-color: rgba(30, 41, 59, 0.5);
+    -fx-background-radius: 8px;
+    -fx-border-color: #334155;
+    -fx-border-radius: 8px;
+    -fx-padding: 8 10;
+}
+
+.shield-title {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e2e8f0;
+}
+
+.shield-desc {
+    -fx-font-size: 10px;
+    -fx-text-fill: #94a3b8;
+}
+
+.spec-card {
+    -fx-background-color: rgba(30, 41, 59, 0.6);
+    -fx-background-radius: 10px;
+    -fx-border-color: #334155;
+    -fx-border-radius: 10px;
+}
+
+.spec-card-title {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #38bdf8;
+}
+
+.spec-badge {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #a855f7;
+    -fx-background-color: rgba(168, 85, 247, 0.15);
+    -fx-padding: 2 6;
+    -fx-background-radius: 4px;
+}
+
+.metric-box {
+    -fx-background-color: rgba(15, 23, 42, 0.8);
+    -fx-background-radius: 8px;
+    -fx-border-color: #334155;
+    -fx-border-radius: 8px;
+    -fx-padding: 8 14;
+    -fx-min-width: 110px;
+    -fx-alignment: center;
+}
+
+.metric-label {
+    -fx-font-size: 10.5px;
+    -fx-text-fill: #94a3b8;
+    -fx-font-weight: bold;
+}
+
+.metric-value {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #38bdf8;
+}
+
+

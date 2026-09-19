@@ -65,6 +65,9 @@ public class ChatController {
     private Label peerPresenceLabel;
 
     @FXML
+    private Button btnSecurityDashboard;
+
+    @FXML
     private Button btnSecurityInfo;
 
     @FXML
@@ -645,6 +648,29 @@ public class ChatController {
 
     private void scrollToBottom() {
         Platform.runLater(() -> messageScrollPane.setVvalue(1.0));
+    }
+
+    @FXML
+    private void handleOpenSecurityDashboard(ActionEvent event) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/security_dashboard.fxml"));
+            Parent root = loader.load();
+
+            SecurityDashboardController controller = loader.getController();
+            controller.initData(selectedPeer);
+
+            Stage dialog = new Stage();
+            dialog.initModality(Modality.WINDOW_MODAL);
+            dialog.initOwner(currentUserLabel.getScene().getWindow());
+            dialog.setTitle("LatticeChat — Cryptographic Security Dashboard & Inspector");
+
+            Scene scene = new Scene(root, 760, 680);
+            scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
+            dialog.setScene(scene);
+            dialog.showAndWait();
+        } catch (Exception e) {
+            showErrorAlert("Dashboard Error", "Could not open security dashboard: " + e.getMessage());
+        }
     }
 
     @FXML

@@ -59,7 +59,9 @@
 
                 <Region HBox.hgrow="ALWAYS"/>
 
-                <Button fx:id="btnSecurityInfo" text="🛡️ PQC Security" onAction="#handleOpenSecurityInfo"
+                <Button fx:id="btnSecurityDashboard" text="📊 Security Dashboard" onAction="#handleOpenSecurityDashboard"
+                        styleClass="secondary-button" style="-fx-font-size: 11.5px; -fx-padding: 6 12;"/>
+                <Button fx:id="btnSecurityInfo" text="🛡️ PQC Verification" onAction="#handleOpenSecurityInfo"
                         disable="true" styleClass="security-badge-button"/>
             </HBox>
 

@@ -65,12 +65,19 @@ public class LocalStorageService implements AutoCloseable {
                     session_key_b64 TEXT NOT NULL,
                     peer_identity_key_b64 TEXT,
                     peer_key_version INTEGER DEFAULT 1,
+                    is_verified INTEGER DEFAULT 0,
                     established_at TEXT NOT NULL
                 );
             """);
 
             try {
                 stmt.execute("ALTER TABLE peer_sessions ADD COLUMN peer_key_version INTEGER DEFAULT 1;");
+            } catch (SQLException ignored) {
+                // Column already exists
+            }
+
+            try {
+                stmt.execute("ALTER TABLE peer_sessions ADD COLUMN is_verified INTEGER DEFAULT 0;");
             } catch (SQLException ignored) {
                 // Column already exists
             }
@@ -211,6 +218,28 @@ public class LocalStorageService implements AutoCloseable {
             }
         }
         return Optional.empty();
+    }
+
+    public synchronized void setPeerVerified(String peerUsername, boolean verified) throws SQLException {
+        String sql = "UPDATE peer_sessions SET is_verified = ? WHERE peer_username = ?;";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, verified ? 1 : 0);
+            ps.setString(2, peerUsername);
+            ps.executeUpdate();
+        }
+    }
+
+    public synchronized boolean isPeerVerified(String peerUsername) throws SQLException {
+        String sql = "SELECT is_verified FROM peer_sessions WHERE peer_username = ?;";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, peerUsername);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("is_verified") == 1;
+                }
+            }
+        }
+        return false;
     }
 
     public synchronized boolean hasSession(String peerUsername) throws SQLException {

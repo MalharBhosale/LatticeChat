@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.securechat.client.controller.SecurityDashboardController"
+      spacing="12" styleClass="security-dashboard-root" prefWidth="760" prefHeight="680">
+    <padding>
+        <Insets top="18" right="22" bottom="18" left="22"/>
+    </padding>
+
+    <!-- Dashboard Header -->
+    <HBox alignment="CENTER_LEFT" spacing="12">
+        <Label text="🛡️" style="-fx-font-size: 28px;"/>
+        <VBox spacing="2" HBox.hgrow="ALWAYS">
+            <Label text="LatticeChat — Cryptographic Security Dashboard &amp; Inspector" styleClass="dashboard-title"/>
+            <Label text="Real-Time Post-Quantum Cryptography &amp; Threat Defense Telemetry" styleClass="dashboard-subtitle"/>
+        </VBox>
+        <Button text="Close" onAction="#handleClose" styleClass="secondary-button"/>
+    </HBox>
+
+    <Separator/>
+
+    <!-- Tabbed Dashboard Interface -->
+    <TabPane VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE" styleClass="dashboard-tab-pane">
+
+        <!-- TAB 1: ACTIVE SESSION & VERIFICATION -->
+        <Tab text="  🛡️ Active Session &amp; Safety  ">
+            <ScrollPane fitToWidth="true" hbarPolicy="NEVER" styleClass="dashboard-scroll-pane">
+                <VBox spacing="14" styleClass="tab-content-container">
+                    <padding>
+                        <Insets top="14" right="14" bottom="14" left="14"/>
+                    </padding>
+
+                    <!-- Active Contact Banner -->
+                    <HBox alignment="CENTER_LEFT" spacing="12" styleClass="session-banner-card">
+                        <Label text="Active Conversation:" styleClass="field-label"/>
+                        <Label fx:id="peerUsernameLabel" text="@select_contact" styleClass="session-peer-badge"/>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <Label fx:id="verificationStatusBadge" text="UNVERIFIED" styleClass="unverified-badge"/>
+                        <Button fx:id="btnToggleVerification" text="Verify Safety Number" onAction="#handleToggleVerification"
+                                styleClass="primary-button"/>
+                    </HBox>
+
+                    <!-- Safety Number Card -->
+                    <VBox alignment="CENTER" spacing="6" styleClass="safety-card">
+                        <padding>
+                            <Insets top="12" right="16" bottom="12" left="16"/>
+                        </padding>
+                        <Label text="CRYPTOGRAPHIC SAFETY NUMBER" styleClass="card-subtitle"/>
+                        <Label fx:id="safetyNumberLabel" text="000000 000000" styleClass="safety-number"/>
+                        <Label text="Compare this fingerprint out-of-band to verify end-to-end identity and detect MITM attacks."
+                               styleClass="card-hint"/>
+                    </VBox>
+
+                    <!-- Session Cryptographic Parameters -->
+                    <GridPane hgap="12" vgap="8" styleClass="inspector-grid">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="160" prefWidth="180"/>
+                            <ColumnConstraints hgrow="ALWAYS"/>
+                        </columnConstraints>
+
+                        <Label text="Peer Key Version:" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <Label fx:id="sessionKeyVersionLabel" text="v1" styleClass="inspector-value" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                        <Label text="Session Key Fingerprint:" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <Label fx:id="sessionKeyFingerprintLabel" text="N/A" styleClass="inspector-mono" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                        <Label text="Peer Identity Key (ML-DSA):" styleClass="field-label" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                        <Label fx:id="peerIdentityFingerprintLabel" text="N/A" styleClass="inspector-mono" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                        <Label text="Your Identity Key (ML-DSA):" styleClass="field-label" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                        <Label fx:id="localIdentityFingerprintLabel" text="N/A" styleClass="inspector-mono" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                    </GridPane>
+
+                    <!-- Active Threat Defense Shields -->
+                    <VBox spacing="8">
+                        <Label text="ACTIVE SECURITY DEFENSE SHIELDS" styleClass="card-subtitle"/>
+                        <GridPane hgap="10" vgap="8">
+                            <columnConstraints>
+                                <ColumnConstraints percentWidth="50"/>
+                                <ColumnConstraints percentWidth="50"/>
+                            </columnConstraints>
+
+                            <HBox spacing="8" alignment="CENTER_LEFT" styleClass="shield-card" GridPane.rowIndex="0" GridPane.columnIndex="0">
+                                <Label text="🛡️" style="-fx-font-size: 16px;"/>
+                                <VBox spacing="1">
+                                    <Label text="Quantum Threat Shield" styleClass="shield-title"/>
+                                    <Label text="ML-KEM-768 Lattice Security (Active)" styleClass="shield-desc"/>
+                                </VBox>
+                            </HBox>
+
+                            <HBox spacing="8" alignment="CENTER_LEFT" styleClass="shield-card" GridPane.rowIndex="0" GridPane.columnIndex="1">
+                                <Label text="🛡️" style="-fx-font-size: 16px;"/>
+                                <VBox spacing="1">
+                                    <Label text="MITM Identity Shield" styleClass="shield-title"/>
+                                    <Label text="ML-DSA-65 Digital Signatures (Active)" styleClass="shield-desc"/>
+                                </VBox>
+                            </HBox>
+
+                            <HBox spacing="8" alignment="CENTER_LEFT" styleClass="shield-card" GridPane.rowIndex="1" GridPane.columnIndex="0">
+                                <Label text="🛡️" style="-fx-font-size: 16px;"/>
+                                <VBox spacing="1">
+                                    <Label text="Replay Defense Shield" styleClass="shield-title"/>
+                                    <Label text="Monotonic Counters &amp; Unique 96-bit Nonces" styleClass="shield-desc"/>
+                                </VBox>
+                            </HBox>
+
+                            <HBox spacing="8" alignment="CENTER_LEFT" styleClass="shield-card" GridPane.rowIndex="1" GridPane.columnIndex="1">
+                                <Label text="🛡️" style="-fx-font-size: 16px;"/>
+                                <VBox spacing="1">
+                                    <Label text="Path Traversal &amp; Storage Shield" styleClass="shield-title"/>
+                                    <Label text="SafePathUtils Quarantine Sandboxing" styleClass="shield-desc"/>
+                                </VBox>
+                            </HBox>
+                        </GridPane>
+                    </VBox>
+                </VBox>
+            </ScrollPane>
+        </Tab>
+
+        <!-- TAB 2: NIST PQC PARAMETERS & PRIMITIVES -->
+        <Tab text="  ⚙️ PQC Cryptographic Specs  ">
+            <ScrollPane fitToWidth="true" hbarPolicy="NEVER" styleClass="dashboard-scroll-pane">
+                <VBox spacing="14" styleClass="tab-content-container">
+                    <padding>
+                        <Insets top="14" right="14" bottom="14" left="14"/>
+                    </padding>
+
+                    <!-- ML-KEM Card -->
+                    <VBox spacing="6" styleClass="spec-card">
+                        <padding><Insets top="12" right="14" bottom="12" left="14"/></padding>
+                        <HBox alignment="CENTER_LEFT" spacing="8">
+                            <Label text="NIST FIPS 203 — ML-KEM-768 (Module-LWE)" styleClass="spec-card-title"/>
+                            <Label text="NIST Level 3" styleClass="spec-badge"/>
+                        </HBox>
+                        <GridPane hgap="12" vgap="4" styleClass="spec-grid">
+                            <Label text="Underlying Problem:" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                            <Label text="Module Learning with Errors (M-LWE) over polynomial rings" styleClass="inspector-value" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                            <Label text="Public Key Size:" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                            <Label text="1,184 Bytes (9,472 bits)" styleClass="inspector-value" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                            <Label text="Ciphertext Size:" styleClass="field-label" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                            <Label text="1,088 Bytes (8,704 bits)" styleClass="inspector-value" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                            <Label text="Shared Secret Output:" styleClass="field-label" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                            <Label text="256-bit IND-CCA2 Secure Seed" styleClass="inspector-value" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                        </GridPane>
+                    </VBox>
+
+                    <!-- ML-DSA Card -->
+                    <VBox spacing="6" styleClass="spec-card">
+                        <padding><Insets top="12" right="14" bottom="12" left="14"/></padding>
+                        <HBox alignment="CENTER_LEFT" spacing="8">
+                            <Label text="NIST FIPS 204 — ML-DSA-65 (Module-SIS)" styleClass="spec-card-title"/>
+                            <Label text="NIST Level 3" styleClass="spec-badge"/>
+                        </HBox>
+                        <GridPane hgap="12" vgap="4" styleClass="spec-grid">
+                            <Label text="Underlying Problem:" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                            <Label text="Module Short Integer Solution (M-SIS)" styleClass="inspector-value" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                            <Label text="Public Key Size:" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                            <Label text="1,952 Bytes (15,616 bits)" styleClass="inspector-value" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                            <Label text="Signature Size:" styleClass="field-label" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                            <Label text="3,309 Bytes (26,472 bits)" styleClass="inspector-value" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                            <Label text="Security Level:" styleClass="field-label" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                            <Label text="Equivalent to AES-192 against Quantum / Classical Attacks" styleClass="inspector-value" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                        </GridPane>
+                    </VBox>
+
+                    <!-- AES-256-GCM & HKDF Card -->
+                    <VBox spacing="6" styleClass="spec-card">
+                        <padding><Insets top="12" right="14" bottom="12" left="14"/></padding>
+                        <HBox alignment="CENTER_LEFT" spacing="8">
+                            <Label text="Symmetric AEAD &amp; Key Derivation" styleClass="spec-card-title"/>
+                        </HBox>
+                        <GridPane hgap="12" vgap="4" styleClass="spec-grid">
+                            <Label text="Symmetric Cipher:" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                            <Label text="AES-256-GCM (NIST SP 800-38D, 128-bit Auth Tag)" styleClass="inspector-value" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                            <Label text="Key Derivation:" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                            <Label text="HKDF-SHA256 (RFC 5869 Extract-and-Expand)" styleClass="inspector-value" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                            <Label text="Streaming Format:" styleClass="field-label" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                            <Label text="LatticeChat Container v1 (64 KB Authenticated Chunks with AAD)" styleClass="inspector-value" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                        </GridPane>
+                    </VBox>
+                </VBox>
+            </ScrollPane>
+        </Tab>
+
+        <!-- TAB 3: KEYSTORE & PREKEY POOL -->
+        <Tab text="  🔑 Keystore &amp; Prekey Pool  ">
+            <ScrollPane fitToWidth="true" hbarPolicy="NEVER" styleClass="dashboard-scroll-pane">
+                <VBox spacing="14" styleClass="tab-content-container">
+                    <padding>
+                        <Insets top="14" right="14" bottom="14" left="14"/>
+                    </padding>
+
+                    <VBox spacing="6" styleClass="spec-card">
+                        <padding><Insets top="12" right="14" bottom="12" left="14"/></padding>
+                        <Label text="LOCAL IDENTITY &amp; SIGNED PREKEYS" styleClass="spec-card-title"/>
+                        <GridPane hgap="12" vgap="6">
+                            <Label text="Identity Key (ML-DSA-65):" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                            <Label fx:id="keystoreIdentityFingerprint" text="Loading..." styleClass="inspector-mono" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                            <Label text="Signed Prekey (ML-KEM-768):" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                            <Label fx:id="keystoreSpkFingerprint" text="Loading..." styleClass="inspector-mono" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                            <Label text="SPK Signature Status:" styleClass="field-label" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                            <Label text="VALID (Cryptographically verified with ID key)" styleClass="verified-badge" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                        </GridPane>
+                    </VBox>
+
+                    <!-- OPK Pool Status -->
+                    <VBox spacing="8" styleClass="spec-card">
+                        <padding><Insets top="12" right="14" bottom="12" left="14"/></padding>
+                        <Label text="ONE-TIME PREKEY (OPK) POOL TELEMETRY" styleClass="spec-card-title"/>
+                        <HBox spacing="16" alignment="CENTER_LEFT">
+                            <VBox spacing="2" styleClass="metric-box">
+                                <Label text="Available OPKs" styleClass="metric-label"/>
+                                <Label fx:id="availableOpkCountLabel" text="5" styleClass="metric-value"/>
+                            </VBox>
+                            <VBox spacing="2" styleClass="metric-box">
+                                <Label text="Consumed OPKs" styleClass="metric-label"/>
+                                <Label fx:id="consumedOpkCountLabel" text="0" styleClass="metric-value"/>
+                            </VBox>
+                            <VBox spacing="2" styleClass="metric-box">
+                                <Label text="Pool Health" styleClass="metric-label"/>
+                                <Label fx:id="opkHealthLabel" text="OPTIMAL" styleClass="verified-badge"/>
+                            </VBox>
+                        </HBox>
+                        <Label text="One-Time Prekeys provide forward secrecy for asynchronous offline key exchanges." styleClass="card-hint"/>
+                    </VBox>
+
+                    <!-- Keystore Actions -->
+                    <HBox spacing="10">
+                        <Button text="🔄 Rotate Signed Prekey" onAction="#handleRotateSpk" styleClass="secondary-button"/>
+                        <Button text="⚡ Replenish One-Time Prekeys" onAction="#handleReplenishOpks" styleClass="secondary-button"/>
+                    </HBox>
+                </VBox>
+            </ScrollPane>
+        </Tab>
+
+        <!-- TAB 4: AUDIT TRAIL -->
+        <Tab text="  📋 Cryptographic Audit Trail  ">
+            <VBox spacing="10" styleClass="tab-content-container">
+                <padding>
+                    <Insets top="14" right="14" bottom="14" left="14"/>
+                </padding>
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="SECURITY EVENT LOG AUDIT TRAIL" styleClass="spec-card-title" HBox.hgrow="ALWAYS"/>
+                    <Button text="🔄 Refresh Audit Trail" onAction="#handleRefreshAuditTrail" styleClass="secondary-button"/>
+                </HBox>
+                <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="dashboard-scroll-pane">
+                    <VBox fx:id="auditLogsList" spacing="6">
+                        <Label text="Loading security audit trail..." styleClass="card-hint"/>
+                    </VBox>
+                </ScrollPane>
+            </VBox>
+        </Tab>
+    </TabPane>
+</VBox>
