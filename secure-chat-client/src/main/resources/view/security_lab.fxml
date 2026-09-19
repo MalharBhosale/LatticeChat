@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.securechat.client.controller.SecurityLabController"
+      spacing="12" styleClass="security-lab-root" prefWidth="860" prefHeight="700">
+    <padding>
+        <Insets top="18" right="22" bottom="18" left="22"/>
+    </padding>
+
+    <!-- Lab Header -->
+    <HBox alignment="CENTER_LEFT" spacing="12">
+        <Label text="🧪" style="-fx-font-size: 28px;"/>
+        <VBox spacing="2" HBox.hgrow="ALWAYS">
+            <Label text="LatticeChat — Educational Security Lab &amp; Attack Simulator" styleClass="dashboard-title"/>
+            <Label text="Interactive Post-Quantum Adversarial Testing &amp; Forensic Shield Verification" styleClass="dashboard-subtitle"/>
+        </VBox>
+        <Button text="Close" onAction="#handleClose" styleClass="secondary-button"/>
+    </HBox>
+
+    <Separator/>
+
+    <!-- Main Content: Left Controls & Right Forensic Console -->
+    <HBox spacing="16" VBox.vgrow="ALWAYS">
+
+        <!-- LEFT PANEL: Attack Scenarios & Configuration -->
+        <VBox spacing="14" prefWidth="340" minWidth="320" styleClass="lab-left-panel">
+            <Label text="SELECT ATTACK SCENARIO" styleClass="card-subtitle"/>
+
+            <!-- Radio Button Group for Scenarios -->
+            <VBox spacing="8" styleClass="scenario-group">
+                <RadioButton fx:id="radioReplay" text="🔁 Replay Attack &amp; Packet Duplication"
+                             selected="true" styleClass="scenario-radio">
+                    <toggleGroup>
+                        <ToggleGroup fx:id="attackScenarioGroup"/>
+                    </ToggleGroup>
+                </RadioButton>
+                <Label text="Simulates network eavesdropping and re-transmitting duplicate message packets."
+                       styleClass="card-hint" wrapText="true"/>
+
+                <Separator/>
+
+                <RadioButton fx:id="radioTamper" text="⚡ Ciphertext Bit-Flipping (AEAD)"
+                             toggleGroup="$attackScenarioGroup" styleClass="scenario-radio"/>
+                <Label text="Mutates individual ciphertext bits to test AES-256-GCM 128-bit GHASH integrity."
+                       styleClass="card-hint" wrapText="true"/>
+
+                <Separator/>
+
+                <RadioButton fx:id="radioSignature" text="🔏 Forged ML-DSA-65 Signature"
+                             toggleGroup="$attackScenarioGroup" styleClass="scenario-radio"/>
+                <Label text="Injects modified message content to test NIST FIPS 204 post-quantum verification."
+                       styleClass="card-hint" wrapText="true"/>
+
+                <Separator/>
+
+                <RadioButton fx:id="radioIdor" text="🚪 IDOR &amp; Unauthorized Exfiltration"
+                             toggleGroup="$attackScenarioGroup" styleClass="scenario-radio"/>
+                <Label text="Simulates unauthorized principal attempting to download or stream private files."
+                       styleClass="card-hint" wrapText="true"/>
+            </VBox>
+
+            <!-- Attack Configuration Inputs -->
+            <VBox spacing="8" styleClass="spec-card">
+                <padding><Insets top="10" right="12" bottom="10" left="12"/></padding>
+                <Label text="ATTACK PARAMETERS" styleClass="field-label"/>
+
+                <Label text="Payload / Message Content:" styleClass="card-hint"/>
+                <TextField fx:id="inputPayloadField" text="Confidential Wire: $100,000 to Account #4429"
+                           styleClass="input-field"/>
+
+                <Label fx:id="inputParamLabel" text="Bit Index to Flip (Byte offset):" styleClass="card-hint"/>
+                <TextField fx:id="inputParamField" text="4" styleClass="input-field"/>
+            </VBox>
+
+            <Button fx:id="btnExecuteSimulation" text="🚀 Launch Attack Simulation"
+                    onAction="#handleExecuteSimulation"
+                    maxWidth="Infinity" styleClass="primary-button"
+                    style="-fx-font-size: 14px; -fx-padding: 12 16;"/>
+        </VBox>
+
+        <!-- RIGHT PANEL: Forensic Terminal & Defense Evidence -->
+        <VBox spacing="10" HBox.hgrow="ALWAYS">
+
+            <!-- Defense Status Banner -->
+            <HBox alignment="CENTER_LEFT" spacing="12" styleClass="lab-status-banner">
+                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                    <Label fx:id="defenseBanner" text="SYSTEM IDLE — SELECT SCENARIO &amp; LAUNCH"
+                           styleClass="lab-idle-badge"/>
+                    <Label fx:id="shieldNameLabel" text="Active Defense Shield: Ready"
+                           styleClass="field-label"/>
+                </VBox>
+                <Label fx:id="metricsLabel" text="0 ms" styleClass="inspector-mono"/>
+            </HBox>
+
+            <!-- Explanation Box -->
+            <VBox spacing="4" styleClass="spec-card">
+                <padding><Insets top="8" right="12" bottom="8" left="12"/></padding>
+                <Label text="CRYPTOGRAPHIC DEFENSE MECHANISM" styleClass="spec-card-title"/>
+                <Label fx:id="explanationLabel"
+                       text="Select an attack scenario on the left and click 'Launch Attack Simulation' to observe real-time cryptographic defenses and inspect forensic logs."
+                       wrapText="true" styleClass="inspector-value"/>
+            </VBox>
+
+            <!-- Live Forensic Terminal -->
+            <VBox spacing="4" VBox.vgrow="ALWAYS">
+                <HBox alignment="CENTER_LEFT" spacing="8">
+                    <Label text="LIVE FORENSIC EXECUTION LOG" styleClass="field-label" HBox.hgrow="ALWAYS"/>
+                    <Button text="Clear Log" onAction="#handleClearConsole" styleClass="icon-button"
+                            style="-fx-font-size: 10.5px; -fx-padding: 2 8;"/>
+                </HBox>
+
+                <TextArea fx:id="forensicTerminal" editable="false" VBox.vgrow="ALWAYS"
+                          styleClass="raw-json-area"
+                          promptText="Simulation trace and packet telemetry will appear here..."/>
+            </VBox>
+        </VBox>
+    </HBox>
+</VBox>

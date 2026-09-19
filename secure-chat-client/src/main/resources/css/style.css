@@ -680,4 +680,70 @@
     -fx-text-fill: #38bdf8;
 }
 
+/* ==========================================================================
+   Educational Security Lab & Attack Simulator Styles (Phase 14)
+   ========================================================================== */
+
+.security-lab-root {
+    -fx-background-color: #0b0f19;
+}
+
+.lab-left-panel {
+    -fx-background-color: rgba(15, 23, 42, 0.6);
+    -fx-background-radius: 10px;
+    -fx-border-color: #334155;
+    -fx-border-radius: 10px;
+    -fx-padding: 12 14;
+}
+
+.scenario-group {
+    -fx-background-color: transparent;
+}
+
+.scenario-radio {
+    -fx-text-fill: #f1f5f9;
+    -fx-font-size: 12.5px;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+}
+
+.scenario-radio .radio {
+    -fx-background-color: #1e293b;
+    -fx-border-color: #38bdf8;
+    -fx-border-radius: 10px;
+    -fx-background-radius: 10px;
+}
+
+.scenario-radio:selected .radio .dot {
+    -fx-background-color: #38bdf8;
+    -fx-background-radius: 6px;
+}
+
+.lab-status-banner {
+    -fx-background-color: rgba(30, 41, 59, 0.7);
+    -fx-background-radius: 8px;
+    -fx-border-color: #334155;
+    -fx-border-radius: 8px;
+    -fx-padding: 10 14;
+}
+
+.lab-idle-badge {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #94a3b8;
+}
+
+.lab-success-badge {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #10b981;
+}
+
+.lab-failure-badge {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #ef4444;
+}
+
+
 

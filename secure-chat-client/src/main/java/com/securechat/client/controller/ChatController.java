@@ -65,6 +65,9 @@ public class ChatController {
     private Label peerPresenceLabel;
 
     @FXML
+    private Button btnSecurityLab;
+
+    @FXML
     private Button btnSecurityDashboard;
 
     @FXML
@@ -670,6 +673,26 @@ public class ChatController {
             dialog.showAndWait();
         } catch (Exception e) {
             showErrorAlert("Dashboard Error", "Could not open security dashboard: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void handleOpenSecurityLab(ActionEvent event) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/security_lab.fxml"));
+            Parent root = loader.load();
+
+            Stage dialog = new Stage();
+            dialog.initModality(Modality.WINDOW_MODAL);
+            dialog.initOwner(currentUserLabel.getScene().getWindow());
+            dialog.setTitle("LatticeChat — Educational Security Lab & Attack Simulator");
+
+            Scene scene = new Scene(root, 860, 700);
+            scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
+            dialog.setScene(scene);
+            dialog.showAndWait();
+        } catch (Exception e) {
+            showErrorAlert("Security Lab Error", "Could not open security lab: " + e.getMessage());
         }
     }
 
