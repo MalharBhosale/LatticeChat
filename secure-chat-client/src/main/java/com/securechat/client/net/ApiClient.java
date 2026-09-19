@@ -107,6 +107,113 @@ public class ApiClient {
         return res.data() != null ? res.data() : 0;
     }
 
+    public UserKeyBundleDto rotateKeyBundle(RotateKeyBundleRequest request) throws Exception {
+        ApiResponse<UserKeyBundleDto> res = post("/keys/rotate", request, new TypeReference<ApiResponse<UserKeyBundleDto>>() {});
+        if (!res.success()) {
+            throw new RuntimeException(res.message());
+        }
+        return res.data();
+    }
+
+    // --- Attachments & File Transfer ---
+
+    public UploadAttachmentResponse uploadAttachment(String recipientUsername,
+                                                    String encryptedFilename,
+                                                    String mimeType,
+                                                    String nonceBase64,
+                                                    byte[] encryptedData) throws Exception {
+        String boundary = "----LatticeChatBoundary" + java.util.UUID.randomUUID().toString().replace("-", "");
+        byte[] lineBreak = "\r\n".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+
+        // recipientUsername
+        baos.write(("--" + boundary + "\r\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        baos.write("Content-Disposition: form-data; name=\"recipientUsername\"\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        baos.write(recipientUsername.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        baos.write(lineBreak);
+
+        // encryptedFilename
+        if (encryptedFilename != null) {
+            baos.write(("--" + boundary + "\r\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            baos.write("Content-Disposition: form-data; name=\"encryptedFilename\"\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            baos.write(encryptedFilename.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            baos.write(lineBreak);
+        }
+
+        // mimeType
+        if (mimeType != null) {
+            baos.write(("--" + boundary + "\r\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            baos.write("Content-Disposition: form-data; name=\"mimeType\"\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            baos.write(mimeType.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            baos.write(lineBreak);
+        }
+
+        // nonce
+        baos.write(("--" + boundary + "\r\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        baos.write("Content-Disposition: form-data; name=\"nonce\"\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        baos.write(nonceBase64.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        baos.write(lineBreak);
+
+        // file
+        baos.write(("--" + boundary + "\r\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        baos.write(("Content-Disposition: form-data; name=\"file\"; filename=\"" + (encryptedFilename != null ? encryptedFilename : "payload.enc") + "\"\r\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        baos.write("Content-Type: application/octet-stream\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        baos.write(encryptedData);
+        baos.write(lineBreak);
+
+        // closing boundary
+        baos.write(("--" + boundary + "--\r\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        byte[] multipartBody = baos.toByteArray();
+
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/attachments/upload"))
+                .timeout(Duration.ofSeconds(30))
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(multipartBody));
+
+        if (authToken != null) {
+            builder.header("Authorization", "Bearer " + authToken);
+        }
+
+        HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+        ApiResponse<UploadAttachmentResponse> res = handleResponse(response, new TypeReference<ApiResponse<UploadAttachmentResponse>>() {});
+        if (!res.success()) {
+            throw new RuntimeException(res.message());
+        }
+        return res.data();
+    }
+
+    public byte[] downloadAttachment(String fileId) throws Exception {
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/attachments/" + fileId))
+                .timeout(Duration.ofSeconds(30))
+                .GET();
+
+        if (authToken != null) {
+            builder.header("Authorization", "Bearer " + authToken);
+        }
+
+        HttpResponse<byte[]> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
+        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+            return response.body();
+        } else {
+            throw new RuntimeException("Failed to download attachment (HTTP " + response.statusCode() + ")");
+        }
+    }
+
+    public EncryptedAttachmentDto getAttachmentMetadata(String fileId) throws Exception {
+        ApiResponse<EncryptedAttachmentDto> res = get("/attachments/" + fileId + "/meta",
+                new TypeReference<ApiResponse<EncryptedAttachmentDto>>() {});
+        if (!res.success()) {
+            throw new RuntimeException(res.message());
+        }
+        return res.data();
+    }
+
+
+
     // --- Messaging ---
 
     public EncryptedMessageDto sendMessage(SendMessageRequest request) throws Exception {

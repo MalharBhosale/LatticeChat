@@ -125,6 +125,79 @@ public class KeyManagementService {
     }
 
     /**
+     * Rotates a user's signed prekey (ML-KEM-768), verifies the signature using their permanent
+     * ML-DSA-65 identity key, increments the key version, and records an audit log.
+     */
+    @Transactional(noRollbackFor = IllegalArgumentException.class)
+    public UserKeyBundleEntity rotateSignedPrekey(String username, com.securechat.common.dto.RotateKeyBundleRequest request) {
+        if (request == null || request.newPrekey() == null || request.newPrekeySignature() == null) {
+            throw new IllegalArgumentException("New prekey and prekey signature are required for rotation");
+        }
+
+        UserEntity user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User '" + username + "' not found"));
+
+        UserKeyBundleEntity currentBundle = userKeyBundleRepository.findByUserIdAndIsActiveTrue(user.getId())
+                .orElseThrow(() -> new IllegalStateException("Cannot rotate keys: no active key bundle found for user: " + username));
+
+        // 1. Verify ML-DSA signature over the new prekey using permanent identity key
+        try {
+            byte[] identityKeyBytes = Base64.getDecoder().decode(currentBundle.getIdentityKey());
+            byte[] prekeyBytes = Base64.getDecoder().decode(request.newPrekey());
+            byte[] signatureBytes = Base64.getDecoder().decode(request.newPrekeySignature());
+
+            boolean isValid = signatureService.verify(prekeyBytes, signatureBytes, identityKeyBytes);
+            if (!isValid) {
+                log.warn("Cryptographic verification failed for rotated prekey signature from user '{}'", username);
+                recordAuditLog(username, AuditEventType.SIGNATURE_VERIFICATION_FAILED,
+                        "Rotated prekey signature verification failed for user: " + username);
+                throw new IllegalArgumentException("Invalid prekey signature. The prekey must be signed by the identity key.");
+            }
+        } catch (IllegalArgumentException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("Failed to parse or verify rotated prekey signature for user '{}': {}", username, ex.getMessage());
+            recordAuditLog(username, AuditEventType.SIGNATURE_VERIFICATION_FAILED,
+                    "Malformed signature or key encoding during rotation: " + ex.getMessage());
+            throw new IllegalArgumentException("Invalid key encoding or signature format: " + ex.getMessage());
+        }
+
+        // 2. Deactivate existing active bundle and increment key version
+        int nextVersion = currentBundle.getKeyVersion() + 1;
+        userKeyBundleRepository.deactivateAllByUserId(user.getId());
+
+        // 3. Persist new active bundle
+        String prekeyAlgo = request.newPrekeyAlgorithm() != null ? request.newPrekeyAlgorithm() : "ML-KEM-768";
+        UserKeyBundleEntity newBundle = new UserKeyBundleEntity(
+                user,
+                currentBundle.getIdentityKey(),
+                currentBundle.getIdentityAlgorithm(),
+                request.newPrekey(),
+                prekeyAlgo,
+                request.newPrekeySignature(),
+                nextVersion
+        );
+        UserKeyBundleEntity savedBundle = userKeyBundleRepository.save(newBundle);
+
+        // 4. Save any additional one-time prekeys
+        if (request.oneTimePrekeys() != null && !request.oneTimePrekeys().isEmpty()) {
+            List<OneTimePrekeyEntity> prekeyEntities = request.oneTimePrekeys().stream()
+                    .map(dto -> new OneTimePrekeyEntity(user, dto.keyId(), dto.publicKey(), dto.algorithm()))
+                    .toList();
+            oneTimePrekeyRepository.saveAll(prekeyEntities);
+            log.info("Stored {} replenished one-time prekeys during key rotation for user '{}'", prekeyEntities.size(), username);
+        }
+
+        // 5. Security audit trail
+        recordAuditLog(user, AuditEventType.KEY_ROTATION,
+                "Rotated PQC signed prekey to version " + nextVersion);
+
+        log.info("Successfully rotated PQC key bundle to v{} for user '{}'", nextVersion, username);
+        return savedBundle;
+    }
+
+
+    /**
      * Replenishes a user's pool of unconsumed one-time prekeys (ML-KEM-768).
      */
     @Transactional

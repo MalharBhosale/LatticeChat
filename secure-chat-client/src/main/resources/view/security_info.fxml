@@ -41,6 +41,22 @@
         </VBox>
     </VBox>
 
+    <!-- Key Rotation Card -->
+    <VBox spacing="6" styleClass="safety-card">
+        <padding>
+            <Insets top="10" right="14" bottom="10" left="14"/>
+        </padding>
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <VBox spacing="2" HBox.hgrow="ALWAYS">
+                <Label text="POST-QUANTUM KEY ROTATION" styleClass="card-subtitle"/>
+                <Label fx:id="keyVersionLabel" text="Active Key Version: v1" styleClass="inspector-value"/>
+                <Label fx:id="rotationStatusLabel" text="" wrapText="true" styleClass="card-hint"/>
+            </VBox>
+            <Button fx:id="btnRotatePrekey" text="🔄 Rotate Prekey" onAction="#handleRotatePrekey"
+                    styleClass="secondary-button"/>
+        </HBox>
+    </VBox>
+
     <!-- Algorithms in use -->
     <VBox spacing="4" styleClass="algo-box">
         <padding>
@@ -54,3 +70,4 @@
         <Button text="Done" onAction="#handleClose" styleClass="primary-button" minWidth="90"/>
     </HBox>
 </VBox>
+

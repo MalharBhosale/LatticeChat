@@ -23,3 +23,8 @@ Thumbs.db
 # Java crash logs
 hs_err_pid*
 replay_pid*
+
+# Uploads directory
+uploads/
+**/uploads/
+

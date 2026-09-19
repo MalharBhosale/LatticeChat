@@ -32,7 +32,19 @@ public class SecurityInfoController {
     @FXML
     private Label algorithmsLabel;
 
+    @FXML
+    private Label keyVersionLabel;
+
+    @FXML
+    private Label rotationStatusLabel;
+
+    @FXML
+    private javafx.scene.control.Button btnRotatePrekey;
+
+    private String currentPeer;
+
     public void initData(String peerUsername) {
+        this.currentPeer = peerUsername;
         peerNameLabel.setText("@" + peerUsername);
 
         ClientContext ctx = ClientContext.getInstance();
@@ -62,6 +74,56 @@ public class SecurityInfoController {
                 "• Symmetric Cipher: AES-256-GCM (NIST SP 800-38D, 128-bit tag)\n" +
                 "• Key Derivation: RFC 5869 HKDF-SHA256"
         );
+
+        if (keyVersionLabel != null) {
+            keyVersionLabel.setText("Active Key Version: v1 (Initial Bundle)");
+        }
+    }
+
+    @FXML
+    private void handleRotatePrekey(ActionEvent event) {
+        btnRotatePrekey.setDisable(true);
+        if (rotationStatusLabel != null) {
+            rotationStatusLabel.setText("Generating fresh ML-KEM-768 prekey & signing with ML-DSA-65...");
+            rotationStatusLabel.setStyle("-fx-text-fill: #38bdf8;");
+        }
+
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                ClientContext ctx = ClientContext.getInstance();
+                var keystore = ctx.getKeystore();
+
+                // 1. Rotate in keystore (fresh ML-KEM-768 prekey + signature)
+                var newSpk = keystore.rotateSignedPrekey();
+                String prekeyB64 = Base64.getEncoder().encodeToString(newSpk.publicKey());
+                String sigB64 = Base64.getEncoder().encodeToString(keystore.getSignedPrekeySignature());
+
+                // 2. Upload to server
+                com.securechat.common.dto.RotateKeyBundleRequest req =
+                        new com.securechat.common.dto.RotateKeyBundleRequest(prekeyB64, "ML-KEM-768", sigB64, null);
+
+                var response = ctx.getApiClient().rotateKeyBundle(req);
+
+                javafx.application.Platform.runLater(() -> {
+                    btnRotatePrekey.setDisable(false);
+                    if (keyVersionLabel != null) {
+                        keyVersionLabel.setText("Active Key Version: v" + response.keyVersion() + " (Rotated)");
+                    }
+                    if (rotationStatusLabel != null) {
+                        rotationStatusLabel.setText("✓ Prekey rotated to v" + response.keyVersion() + "! Server audit logged.");
+                        rotationStatusLabel.setStyle("-fx-text-fill: #10b981; -fx-font-weight: bold;");
+                    }
+                });
+            } catch (Exception e) {
+                javafx.application.Platform.runLater(() -> {
+                    btnRotatePrekey.setDisable(false);
+                    if (rotationStatusLabel != null) {
+                        rotationStatusLabel.setText("Rotation failed: " + e.getMessage());
+                        rotationStatusLabel.setStyle("-fx-text-fill: #ef4444;");
+                    }
+                });
+            }
+        });
     }
 
     private String computeSafetyNumber(String k1, String k2) {
@@ -86,3 +148,4 @@ public class SecurityInfoController {
         stage.close();
     }
 }
+

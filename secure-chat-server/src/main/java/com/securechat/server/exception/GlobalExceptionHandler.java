@@ -30,11 +30,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(ex.getMessage()));
     }
 
-    @ExceptionHandler(AuthorizationException.class)
-    public ResponseEntity<ApiResponse<Void>> handleAuthorizationException(AuthorizationException ex) {
+    @ExceptionHandler({AuthorizationException.class, org.springframework.security.access.AccessDeniedException.class})
+    public ResponseEntity<ApiResponse<Void>> handleAuthorizationException(Exception ex) {
         log.warn("Authorization rejected: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(ex.getMessage()));
     }
+
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException ex) {

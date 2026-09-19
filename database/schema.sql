@@ -119,3 +119,28 @@ CREATE TABLE IF NOT EXISTS `audit_logs` (
     INDEX `idx_audit_event_time` (`event_type`, `created_at`),
     INDEX `idx_audit_user_time` (`user_id`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- Table: attachments
+-- Stores end-to-end encrypted file attachment metadata and quarantined storage paths.
+-- The server only stores ciphertext blobs. Plaintext is never stored.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `attachments` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `file_id` VARCHAR(64) NOT NULL,
+    `uploader_id` BIGINT NOT NULL,
+    `recipient_id` BIGINT NOT NULL,
+    `encrypted_filename` VARCHAR(255) NOT NULL,
+    `mime_type` VARCHAR(100) NOT NULL,
+    `file_size_bytes` BIGINT NOT NULL,
+    `storage_path` VARCHAR(500) NOT NULL,
+    `nonce` VARCHAR(64) NOT NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT `uk_attachments_file_id` UNIQUE (`file_id`),
+    CONSTRAINT `fk_attachments_uploader` FOREIGN KEY (`uploader_id`)
+        REFERENCES `users` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_attachments_recipient` FOREIGN KEY (`recipient_id`)
+        REFERENCES `users` (`id`) ON DELETE CASCADE,
+    INDEX `idx_attachments_recipient` (`recipient_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

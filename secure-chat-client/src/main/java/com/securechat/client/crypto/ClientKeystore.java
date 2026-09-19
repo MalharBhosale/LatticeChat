@@ -103,6 +103,24 @@ public class ClientKeystore {
     }
 
     /**
+     * Rotates the signed prekey (ML-KEM-768): generates a fresh KEM keypair,
+     * signs it with the permanent ML-DSA-65 identity key, and updates internal state.
+     */
+    public KemKeyPair rotateSignedPrekey() {
+        KeyExchangeService kemService = new MlKemKeyExchangeService();
+        SignatureService dsaService = new MlDsaSignatureService();
+
+        KemKeyPair newSpk = kemService.generateKeyPair();
+        byte[] newSig = dsaService.sign(newSpk.publicKey(), this.identityKey.privateKey());
+
+        this.signedPrekey = newSpk;
+        this.signedPrekeySignature = newSig;
+
+        return newSpk;
+    }
+
+
+    /**
      * Encrypts and saves this keystore to disk using master password.
      */
     public void saveToFile(File file, char[] password) throws Exception {

@@ -77,7 +77,11 @@ public class ChatController {
     private TextField messageInputField;
 
     @FXML
+    private Button btnAttach;
+
+    @FXML
     private Button btnSend;
+
 
     private final ObservableList<String> contactList = FXCollections.observableArrayList();
     private final Set<String> onlinePeers = Collections.synchronizedSet(new HashSet<>());
@@ -202,8 +206,10 @@ public class ChatController {
         this.selectedPeer = peerUsername;
         chatHeaderLabel.setText("@" + peerUsername);
         btnSecurityInfo.setDisable(false);
+        btnAttach.setDisable(false);
         messageInputField.setDisable(false);
         btnSend.setDisable(false);
+
 
         updatePeerPresenceLabel(onlinePeers.contains(peerUsername));
         loadConversationHistory(peerUsername);
@@ -292,6 +298,73 @@ public class ChatController {
             }
         });
     }
+
+    @FXML
+    private void handleAttachFile(ActionEvent event) {
+        if (selectedPeer == null) return;
+
+        javafx.stage.FileChooser fileChooser = new javafx.stage.FileChooser();
+        fileChooser.setTitle("LatticeChat — Select File to Encrypt & Send");
+        java.io.File file = fileChooser.showOpenDialog(btnAttach.getScene().getWindow());
+        if (file == null) return;
+
+        if (file.length() > 25 * 1024 * 1024L) {
+            showErrorAlert("File Size Exceeded", "Maximum file size is 25 MB. Selected file: " + (file.length() / (1024 * 1024)) + " MB");
+            return;
+        }
+
+        String peer = selectedPeer;
+        long seq = currentSequenceNumber++;
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                ClientContext ctx = ClientContext.getInstance();
+                ApiClient api = ctx.getApiClient();
+                PqSessionManager sessionMgr = ctx.getSessionManager();
+
+                String ephemeralKem = null;
+                if (!sessionMgr.hasActiveSession(peer)) {
+                    KeyExchangeBundleDto bundle = api.getKeyBundle(peer);
+                    ephemeralKem = sessionMgr.initiateSession(peer, bundle);
+                }
+
+                String sessionKeyB64 = ctx.getStorage().getSessionKey(peer)
+                        .orElseThrow(() -> new IllegalStateException("Active session key not found for peer: " + peer));
+                byte[] sessionKey = Base64.getDecoder().decode(sessionKeyB64);
+
+                // 1. Client-Side Zero-Knowledge Encryption via AES-256-GCM
+                com.securechat.client.crypto.FileCryptoService fileCrypto = new com.securechat.client.crypto.FileCryptoService();
+                var payload = fileCrypto.encryptFile(file, sessionKey);
+
+                // 2. Upload ciphertext blob to quarantined storage
+                String nonceB64 = Base64.getEncoder().encodeToString(payload.nonce());
+                var uploadResp = api.uploadAttachment(peer, file.getName(), payload.mimeType(), nonceB64, payload.ciphertext());
+
+                // 3. Send encrypted message payload referencing the attachment
+                String fileMsgText = "[FILE]:" + uploadResp.fileId() + ":" + file.getName() + ":" + file.length() + ":" + payload.mimeType();
+                SendMessageRequest request = sessionMgr.prepareOutgoingMessage(peer, fileMsgText, ephemeralKem, seq);
+                EncryptedMessageDto sentDto = api.sendMessage(request);
+
+                Platform.runLater(() -> {
+                    LocalMessage localMsg = new LocalMessage(
+                            null,
+                            sentDto.messageId(),
+                            peer,
+                            "OUTGOING",
+                            fileMsgText,
+                            sentDto.status(),
+                            seq,
+                            sentDto.sentAt()
+                    );
+                    renderMessageBubble(localMsg);
+                    scrollToBottom();
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> showErrorAlert("Attachment Send Failed", e.getMessage()));
+            }
+        });
+    }
+
 
     @FXML
     private void handleInputKeyPress(KeyEvent event) {
@@ -406,9 +479,9 @@ public class ChatController {
         bubbleRow.setAlignment(isOutgoing ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
         bubbleRow.setPadding(new Insets(4, 12, 4, 12));
 
-        VBox bubble = new VBox(4);
+        VBox bubble = new VBox(6);
         bubble.setMaxWidth(480);
-        bubble.setPadding(new Insets(8, 12, 8, 12));
+        bubble.setPadding(new Insets(10, 14, 8, 14));
 
         if (isOutgoing) {
             bubble.setStyle("-fx-background-color: linear-gradient(to bottom right, #2563eb, #1d4ed8); -fx-background-radius: 14 14 2 14;");
@@ -416,20 +489,64 @@ public class ChatController {
             bubble.setStyle("-fx-background-color: #334155; -fx-background-radius: 14 14 14 2;");
         }
 
-        Label textLabel = new Label(msg.plaintext());
-        textLabel.setWrapText(true);
-        textLabel.setTextFill(Color.WHITE);
-        textLabel.setStyle("-fx-font-size: 13.5px;");
+        if (msg.plaintext().startsWith("[FILE]:")) {
+            String[] parts = msg.plaintext().split(":", 5);
+            String fileId = parts.length > 1 ? parts[1] : "unknown";
+            String fileName = parts.length > 2 ? parts[2] : "attachment.bin";
+            long sizeBytes = 0;
+            try {
+                sizeBytes = parts.length > 3 ? Long.parseLong(parts[3]) : 0;
+            } catch (NumberFormatException ignored) {}
 
-        HBox metaRow = new HBox(6);
+            String sizeFormatted = formatFileSize(sizeBytes);
+
+            HBox fileCard = new HBox(10);
+            fileCard.setAlignment(Pos.CENTER_LEFT);
+            fileCard.setStyle("-fx-background-color: rgba(15, 23, 42, 0.45); -fx-padding: 8 10; -fx-background-radius: 8px;");
+
+            Label iconLabel = new Label("📁");
+            iconLabel.setStyle("-fx-font-size: 20px;");
+
+            VBox fileMeta = new VBox(2);
+            Label nameLabel = new Label(fileName);
+            nameLabel.setTextFill(Color.WHITE);
+            nameLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold;");
+
+            Label sizeLabel = new Label(sizeFormatted + " • AES-256-GCM Encrypted");
+            sizeLabel.setTextFill(Color.web(isOutgoing ? "#bfdbfe" : "#94a3b8"));
+            sizeLabel.setStyle("-fx-font-size: 10.5px;");
+
+            fileMeta.getChildren().addAll(nameLabel, sizeLabel);
+            HBox.setHgrow(fileMeta, Priority.ALWAYS);
+
+            Button btnDownload = new Button("⬇ Download");
+            btnDownload.setStyle("-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold; -fx-background-radius: 6px; -fx-cursor: hand;");
+            btnDownload.setOnAction(e -> downloadAndDecryptAttachment(fileId, fileName, msg.peerUsername()));
+
+            fileCard.getChildren().addAll(iconLabel, fileMeta, btnDownload);
+            bubble.getChildren().add(fileCard);
+        } else {
+            Label textLabel = new Label(msg.plaintext());
+            textLabel.setWrapText(true);
+            textLabel.setTextFill(Color.WHITE);
+            textLabel.setStyle("-fx-font-size: 13.5px;");
+            bubble.getChildren().add(textLabel);
+        }
+
+        HBox metaRow = new HBox(8);
         metaRow.setAlignment(Pos.CENTER_RIGHT);
 
         String timeStr = msg.timestamp() != null ? TIME_FORMAT.format(msg.timestamp()) : "";
         Label timeLabel = new Label(timeStr);
         timeLabel.setTextFill(Color.web(isOutgoing ? "#bfdbfe" : "#94a3b8"));
         timeLabel.setStyle("-fx-font-size: 10px;");
-
         metaRow.getChildren().add(timeLabel);
+
+        Button btnInspect = new Button("🔬");
+        btnInspect.setTooltip(new Tooltip("Inspect Cryptographic Envelope"));
+        btnInspect.setStyle("-fx-background-color: transparent; -fx-text-fill: #94a3b8; -fx-font-size: 10px; -fx-cursor: hand; -fx-padding: 0 4;");
+        btnInspect.setOnAction(e -> openMessageInspector(msg));
+        metaRow.getChildren().add(btnInspect);
 
         if (isOutgoing) {
             String status = msg.status();
@@ -448,10 +565,75 @@ public class ChatController {
             metaRow.getChildren().add(statusLabel);
         }
 
-        bubble.getChildren().addAll(textLabel, metaRow);
+        bubble.getChildren().add(metaRow);
         bubbleRow.getChildren().add(bubble);
         messageContainer.getChildren().add(bubbleRow);
     }
+
+    private void downloadAndDecryptAttachment(String fileId, String suggestedFilename, String peerUsername) {
+        javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
+        chooser.setTitle("Save Decrypted File");
+        chooser.setInitialFileName(suggestedFilename);
+        java.io.File saveFile = chooser.showSaveDialog(currentUserLabel.getScene().getWindow());
+        if (saveFile == null) return;
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                ClientContext ctx = ClientContext.getInstance();
+                ApiClient api = ctx.getApiClient();
+
+                // 1. Download encrypted ciphertext blob from server
+                byte[] ciphertext = api.downloadAttachment(fileId);
+
+                // 2. Fetch attachment metadata to obtain GCM nonce
+                EncryptedAttachmentDto meta = api.getAttachmentMetadata(fileId);
+                byte[] nonce = Base64.getDecoder().decode(meta.nonceBase64());
+
+                // 3. Retrieve peer's session key
+                String sessionKeyB64 = ctx.getStorage().getSessionKey(peerUsername)
+                        .orElseThrow(() -> new IllegalStateException("Active session key not found for peer: " + peerUsername));
+                byte[] sessionKey = Base64.getDecoder().decode(sessionKeyB64);
+
+                // 4. Decrypt locally and verify 128-bit authentication tag
+                com.securechat.client.crypto.FileCryptoService fileCrypto = new com.securechat.client.crypto.FileCryptoService();
+                fileCrypto.decryptToFile(ciphertext, nonce, sessionKey, saveFile);
+
+                Platform.runLater(() -> showInfoAlert("Decryption Successful",
+                        "File successfully decrypted and saved to:\n" + saveFile.getAbsolutePath()));
+            } catch (Exception e) {
+                Platform.runLater(() -> showErrorAlert("Download & Decryption Error", e.getMessage()));
+            }
+        });
+    }
+
+    private void openMessageInspector(LocalMessage msg) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/message_inspector.fxml"));
+            Parent root = loader.load();
+
+            MessageInspectorController controller = loader.getController();
+            controller.initData(msg);
+
+            Stage dialog = new Stage();
+            dialog.initModality(Modality.WINDOW_MODAL);
+            dialog.initOwner(currentUserLabel.getScene().getWindow());
+            dialog.setTitle("LatticeChat — Cryptographic Inspector (" + msg.messageId() + ")");
+
+            Scene scene = new Scene(root, 640, 600);
+            scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
+            dialog.setScene(scene);
+            dialog.showAndWait();
+        } catch (Exception e) {
+            showErrorAlert("Inspector Error", e.getMessage());
+        }
+    }
+
+    private String formatFileSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
+        return String.format("%.1f MB", bytes / (1024.0 * 1024.0));
+    }
+
 
     private void scrollToBottom() {
         Platform.runLater(() -> messageScrollPane.setVvalue(1.0));

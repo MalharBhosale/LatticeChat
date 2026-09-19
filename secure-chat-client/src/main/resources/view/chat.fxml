@@ -79,12 +79,16 @@
                     <Insets top="12" right="16" bottom="14" left="16"/>
                 </padding>
 
+                <Button fx:id="btnAttach" text="📎" onAction="#handleAttachFile"
+                        disable="true" styleClass="icon-button"/>
+
                 <TextField fx:id="messageInputField" promptText="Type an end-to-end encrypted message..."
                            onKeyPressed="#handleInputKeyPress" disable="true"
                            HBox.hgrow="ALWAYS" styleClass="message-input-field"/>
 
                 <Button fx:id="btnSend" text="Send 🚀" onAction="#handleSendMessage"
                         disable="true" styleClass="send-button"/>
+
             </HBox>
         </VBox>
     </center>

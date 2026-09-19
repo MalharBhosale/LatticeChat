@@ -60,6 +60,31 @@ public class KeyController {
     }
 
     /**
+     * Rotates the authenticated user's signed prekey (ML-KEM-768), increments key version,
+     * and logs the cryptographic rotation event.
+     */
+    @PostMapping("/rotate")
+    public ResponseEntity<ApiResponse<UserKeyBundleDto>> rotateSignedPrekey(
+            @RequestBody com.securechat.common.dto.RotateKeyBundleRequest request,
+            Authentication authentication) {
+        String username = authentication.getName();
+        UserKeyBundleEntity bundle = keyManagementService.rotateSignedPrekey(username, request);
+
+        UserKeyBundleDto dto = new UserKeyBundleDto(
+                bundle.getUser().getId(),
+                bundle.getUser().getUsername(),
+                bundle.getPrekey(),
+                bundle.getPrekeyAlgorithm(),
+                bundle.getIdentityKey(),
+                bundle.getIdentityAlgorithm(),
+                bundle.getKeyVersion(),
+                bundle.getCreatedAt()
+        );
+
+        return ResponseEntity.ok(ApiResponse.ok("Post-Quantum signed prekey rotated successfully", dto));
+    }
+
+    /**
      * Replenishes one-time prekeys (ML-KEM-768) for the authenticated user.
      */
     @PostMapping("/prekeys")
@@ -85,7 +110,7 @@ public class KeyController {
      * Fetches the recipient's active public key bundle and atomically claims one unused OPK
      * to initiate an asynchronous PQ-X3DH messaging session.
      */
-    @GetMapping("/user/{username}")
+    @GetMapping(value = {"/user/{username}", "/bundle/{username}"})
     public ResponseEntity<ApiResponse<KeyExchangeBundleDto>> getKeyExchangeBundleByUsername(
             @PathVariable("username") String username) {
         KeyExchangeBundleDto bundle = keyManagementService.getKeyExchangeBundle(username);
@@ -102,3 +127,4 @@ public class KeyController {
         return ResponseEntity.ok(ApiResponse.ok("Key exchange bundle retrieved successfully", bundle));
     }
 }
+
