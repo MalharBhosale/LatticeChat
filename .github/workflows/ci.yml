@@ -1,0 +1,67 @@
+name: LatticeChat CI/CD - Post-Quantum Security & Quality Assurance
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build, Test & Benchmark
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21 LTS (Eclipse Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Display Environment Information
+        run: |
+          echo "=================================================="
+          echo "Java Runtime Environment:"
+          java -version
+          echo "=================================================="
+          echo "Apache Maven Version:"
+          mvn -version
+          echo "=================================================="
+
+      - name: Execute Full Comprehensive Test Suite
+        run: mvn clean test --batch-mode
+
+      - name: Run Cryptographic Smoke Microbenchmark
+        run: |
+          mvn exec:java -pl secure-chat-common \
+            -Dexec.mainClass="com.securechat.common.crypto.benchmark.PqcBenchmarkRunner" \
+            -Dexec.args="--quick"
+
+      - name: Upload Test Results & Surefire Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: surefire-reports
+          path: |
+            **/target/surefire-reports/*.txt
+            **/target/surefire-reports/*.xml
+          retention-days: 14
+
+      - name: Package Production Artifacts
+        run: mvn package -DskipTests --batch-mode
+
+      - name: Upload Production Application Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: latticechat-binaries
+          path: |
+            secure-chat-server/target/*.jar
+            secure-chat-client/target/*.jar
+          retention-days: 14

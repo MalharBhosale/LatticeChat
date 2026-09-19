@@ -274,17 +274,25 @@ public class KeyManagementService {
         return entities.size();
     }
 
+    private final java.util.concurrent.ConcurrentHashMap<String, Object> recipientLocks = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private Object getRecipientLock(String username) {
+        return recipientLocks.computeIfAbsent(username.toLowerCase(), k -> new Object());
+    }
+
     /**
      * Retrieves the recipient's active public key bundle and atomically claims
      * one unused one-time prekey in FIFO order for initiating a PQ-X3DH session.
      */
     @Transactional
     public KeyExchangeBundleDto getKeyExchangeBundle(String recipientUsername) {
-        UserKeyBundleEntity bundle = userKeyBundleRepository.findByUserUsernameAndIsActiveTrue(recipientUsername)
-                .orElseThrow(() -> new ResourceNotFoundException("Active key bundle not found for user: " + recipientUsername));
+        synchronized (getRecipientLock(recipientUsername)) {
+            UserKeyBundleEntity bundle = userKeyBundleRepository.findByUserUsernameAndIsActiveTrue(recipientUsername)
+                    .orElseThrow(() -> new ResourceNotFoundException("Active key bundle not found for user: " + recipientUsername));
 
-        return claimAndBuildBundle(bundle, () ->
-                oneTimePrekeyRepository.findFirstByUserUsernameAndIsConsumedFalseOrderByIdAsc(recipientUsername));
+            return claimAndBuildBundle(bundle, () ->
+                    oneTimePrekeyRepository.findFirstByUserIdAndIsConsumedFalseOrderByIdAsc(bundle.getUser().getId()));
+        }
     }
 
     /**
@@ -295,8 +303,10 @@ public class KeyManagementService {
         UserKeyBundleEntity bundle = userKeyBundleRepository.findByUserIdAndIsActiveTrue(recipientUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Active key bundle not found for user ID: " + recipientUserId));
 
-        return claimAndBuildBundle(bundle, () ->
-                oneTimePrekeyRepository.findFirstByUserIdAndIsConsumedFalseOrderByIdAsc(recipientUserId));
+        synchronized (getRecipientLock(bundle.getUser().getUsername())) {
+            return claimAndBuildBundle(bundle, () ->
+                    oneTimePrekeyRepository.findFirstByUserIdAndIsConsumedFalseOrderByIdAsc(recipientUserId));
+        }
     }
 
     /**
@@ -325,7 +335,7 @@ public class KeyManagementService {
         if (opkOpt.isPresent()) {
             OneTimePrekeyEntity opk = opkOpt.get();
             opk.markConsumed();
-            oneTimePrekeyRepository.save(opk);
+            oneTimePrekeyRepository.saveAndFlush(opk);
             opkId = opk.getKeyId();
             opkKey = opk.getPublicKey();
             opkAlgorithm = opk.getAlgorithm();
