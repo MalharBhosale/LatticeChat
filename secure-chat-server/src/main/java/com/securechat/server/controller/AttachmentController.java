@@ -86,6 +86,70 @@ public class AttachmentController {
     }
 
     /**
+     * Streams an encrypted file attachment directly from server storage via chunked transfer.
+     * Prevents heap memory accumulation during large file transfers.
+     */
+    @GetMapping("/{fileId}/stream")
+    public ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> streamAttachment(
+            @PathVariable("fileId") String fileId,
+            Authentication authentication) throws IOException {
+
+        String requestingUsername = authentication.getName();
+        AttachmentService.StreamingAttachmentDownload download = attachmentService.loadAttachmentStream(fileId, requestingUsername);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDispositionFormData("attachment", download.metadata().getEncryptedFilename());
+        headers.setContentLength(download.fileLength());
+        headers.set("X-LatticeChat-Nonce", download.metadata().getNonce());
+        headers.set("X-LatticeChat-Mime", download.metadata().getMimeType());
+
+        org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody responseBody = outputStream -> {
+            try (java.io.InputStream in = download.stream()) {
+                in.transferTo(outputStream);
+            }
+        };
+
+        return new ResponseEntity<>(responseBody, headers, HttpStatus.OK);
+    }
+
+    /**
+     * Uploads an end-to-end encrypted file attachment blob via streaming.
+     */
+    @PostMapping(value = "/stream", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<UploadAttachmentResponse>> uploadAttachmentStream(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("recipientUsername") String recipientUsername,
+            @RequestParam(value = "encryptedFilename", required = false) String encryptedFilename,
+            @RequestParam("nonce") String nonce,
+            @RequestParam(value = "mimeType", required = false) String mimeType,
+            Authentication authentication) throws IOException {
+
+        String uploaderUsername = authentication.getName();
+        String originalName = (encryptedFilename != null && !encryptedFilename.isBlank())
+                ? encryptedFilename
+                : file.getOriginalFilename();
+
+        String effectiveMime = (mimeType != null && !mimeType.isBlank())
+                ? mimeType
+                : file.getContentType();
+
+        try (java.io.InputStream inputStream = file.getInputStream()) {
+            UploadAttachmentResponse response = attachmentService.storeAttachmentStream(
+                    uploaderUsername,
+                    recipientUsername,
+                    originalName,
+                    effectiveMime,
+                    nonce,
+                    inputStream
+            );
+
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.ok("Attachment uploaded via stream successfully", response));
+        }
+    }
+
+    /**
      * Retrieves metadata for an encrypted attachment.
      */
     @GetMapping("/{fileId}/meta")

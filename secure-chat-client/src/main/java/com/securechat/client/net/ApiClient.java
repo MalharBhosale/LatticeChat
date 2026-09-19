@@ -13,6 +13,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
@@ -217,6 +218,34 @@ public class ApiClient {
             return response.body();
         } else {
             throw new RuntimeException("Failed to download attachment (HTTP " + response.statusCode() + ")");
+        }
+    }
+
+    /**
+     * Streams an encrypted file attachment directly from the server to local disk.
+     */
+    public Path downloadAttachmentStream(String fileId, Path destinationPath) throws Exception {
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/attachments/" + fileId + "/stream"))
+                .timeout(Duration.ofMinutes(5))
+                .GET();
+
+        if (authToken != null) {
+            builder.header("Authorization", "Bearer " + authToken);
+        }
+
+        if (destinationPath.getParent() != null) {
+            java.nio.file.Files.createDirectories(destinationPath.getParent());
+        }
+
+        HttpResponse<Path> response = httpClient.send(builder.build(),
+                HttpResponse.BodyHandlers.ofFile(destinationPath,
+                        java.nio.file.StandardOpenOption.CREATE,
+                        java.nio.file.StandardOpenOption.TRUNCATE_EXISTING));
+        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+            return response.body();
+        } else {
+            throw new RuntimeException("Failed to stream attachment (HTTP " + response.statusCode() + ")");
         }
     }
 

@@ -18,11 +18,54 @@ public class FileCryptoService {
 
     private static final int GCM_IV_LENGTH_BYTES = 12; // 96-bit nonce
     private final EncryptionService encryptionService;
+    private final com.securechat.common.crypto.stream.StreamingFileCryptoService streamingCryptoService;
     private final SecureRandom secureRandom;
 
     public FileCryptoService() {
         this.encryptionService = new AesGcmEncryptionService();
+        this.streamingCryptoService = new com.securechat.common.crypto.stream.StreamingFileCryptoService();
         this.secureRandom = new SecureRandom();
+    }
+
+    /**
+     * Encrypts a source file to an authenticated streaming container file using AES-256-GCM.
+     */
+    public void encryptFileStreaming(File sourceFile,
+                                    File targetFile,
+                                    byte[] sessionKey,
+                                    com.securechat.common.crypto.stream.CryptoProgressListener listener) throws IOException {
+        streamingCryptoService.encryptFile(sourceFile, targetFile, sessionKey, listener);
+    }
+
+    /**
+     * Decrypts an authenticated streaming container file to a plaintext file using AES-256-GCM.
+     */
+    public long decryptFileStreaming(File sourceFile,
+                                    File targetFile,
+                                    byte[] sessionKey,
+                                    com.securechat.common.crypto.stream.CryptoProgressListener listener) throws IOException {
+        return streamingCryptoService.decryptFile(sourceFile, targetFile, sessionKey, listener);
+    }
+
+    /**
+     * Streams encryption from input to output.
+     */
+    public void encryptStream(java.io.InputStream in,
+                              java.io.OutputStream out,
+                              byte[] sessionKey,
+                              long originalSize,
+                              com.securechat.common.crypto.stream.CryptoProgressListener listener) throws IOException {
+        streamingCryptoService.encryptStream(in, out, sessionKey, originalSize, listener);
+    }
+
+    /**
+     * Streams decryption from input to output.
+     */
+    public long decryptStream(java.io.InputStream in,
+                              java.io.OutputStream out,
+                              byte[] sessionKey,
+                              com.securechat.common.crypto.stream.CryptoProgressListener listener) throws IOException {
+        return streamingCryptoService.decryptStream(in, out, sessionKey, listener);
     }
 
     /**

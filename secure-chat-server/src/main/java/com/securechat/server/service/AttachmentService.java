@@ -83,22 +83,19 @@ public class AttachmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Recipient '" + recipientUsername + "' not found"));
 
         String fileId = UUID.randomUUID().toString();
-        // Secure quarantined storage filename
+        // Secure quarantined storage filename with path traversal defense
         String safeDiskName = fileId + ".enc";
-        Path targetPath = this.uploadDirectory.resolve(safeDiskName).normalize();
-
-        // Path traversal defense check
-        if (!targetPath.startsWith(this.uploadDirectory)) {
-            throw new SecurityException("Potential path traversal detected");
-        }
+        Path targetPath = com.securechat.common.util.SafePathUtils.resolveSafePath(this.uploadDirectory, safeDiskName);
 
         Files.write(targetPath, encryptedBytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+
+        String safeClientFilename = com.securechat.common.util.SafePathUtils.sanitizeFilename(encryptedFilename);
 
         AttachmentEntity entity = new AttachmentEntity(
                 fileId,
                 uploader,
                 recipient,
-                encryptedFilename != null ? encryptedFilename : "encrypted_file.bin",
+                safeClientFilename,
                 mimeType != null ? mimeType : "application/octet-stream",
                 (long) encryptedBytes.length,
                 targetPath.toString(),
@@ -110,6 +107,71 @@ public class AttachmentService {
                 "Uploaded encrypted attachment [" + fileId + "] to recipient: " + recipientUsername + " (" + encryptedBytes.length + " bytes)");
 
         log.info("Stored encrypted attachment [{}] from '{}' to '{}' ({} bytes)", fileId, uploaderUsername, recipientUsername, encryptedBytes.length);
+        return new UploadAttachmentResponse(saved.getFileId(), saved.getFileSizeBytes(), saved.getCreatedAt());
+    }
+
+    /**
+     * Stores an encrypted attachment blob via streaming InputStream.
+     * Prevents heap memory exhaustion for multi-megabyte files.
+     */
+    @Transactional
+    public UploadAttachmentResponse storeAttachmentStream(String uploaderUsername,
+                                                          String recipientUsername,
+                                                          String encryptedFilename,
+                                                          String mimeType,
+                                                          String nonce,
+                                                          java.io.InputStream inputStream) throws IOException {
+        if (nonce == null || nonce.isBlank()) {
+            throw new IllegalArgumentException("Cryptographic nonce is required");
+        }
+
+        UserEntity uploader = userRepository.findByUsername(uploaderUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("Uploader '" + uploaderUsername + "' not found"));
+        UserEntity recipient = userRepository.findByUsername(recipientUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("Recipient '" + recipientUsername + "' not found"));
+
+        String fileId = UUID.randomUUID().toString();
+        String safeDiskName = fileId + ".enc";
+        Path targetPath = com.securechat.common.util.SafePathUtils.resolveSafePath(this.uploadDirectory, safeDiskName);
+
+        long bytesWritten = 0;
+        try (java.io.OutputStream out = Files.newOutputStream(targetPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+            byte[] buf = new byte[64 * 1024];
+            int read;
+            while ((read = inputStream.read(buf)) != -1) {
+                bytesWritten += read;
+                if (bytesWritten > MAX_FILE_SIZE_BYTES) {
+                    out.close();
+                    Files.deleteIfExists(targetPath);
+                    throw new IllegalArgumentException("File size exceeds maximum limit of 25 MB");
+                }
+                out.write(buf, 0, read);
+            }
+        }
+
+        if (bytesWritten == 0) {
+            Files.deleteIfExists(targetPath);
+            throw new IllegalArgumentException("File content cannot be empty");
+        }
+
+        String safeClientFilename = com.securechat.common.util.SafePathUtils.sanitizeFilename(encryptedFilename);
+
+        AttachmentEntity entity = new AttachmentEntity(
+                fileId,
+                uploader,
+                recipient,
+                safeClientFilename,
+                mimeType != null ? mimeType : "application/octet-stream",
+                bytesWritten,
+                targetPath.toString(),
+                nonce
+        );
+
+        AttachmentEntity saved = attachmentRepository.save(entity);
+        recordAuditLog(uploader, AuditEventType.ATTACHMENT_UPLOAD,
+                "Uploaded streaming encrypted attachment [" + fileId + "] to recipient: " + recipientUsername + " (" + bytesWritten + " bytes)");
+
+        log.info("Stored streaming encrypted attachment [{}] from '{}' to '{}' ({} bytes)", fileId, uploaderUsername, recipientUsername, bytesWritten);
         return new UploadAttachmentResponse(saved.getFileId(), saved.getFileSizeBytes(), saved.getCreatedAt());
     }
 
@@ -131,6 +193,8 @@ public class AttachmentService {
         }
 
         Path filePath = Paths.get(attachment.getStoragePath());
+        com.securechat.common.util.SafePathUtils.assertSafePath(this.uploadDirectory, filePath);
+
         if (!Files.exists(filePath)) {
             throw new ResourceNotFoundException("Physical file not found on server storage for attachment [" + fileId + "]");
         }
@@ -142,6 +206,38 @@ public class AttachmentService {
                 "Downloaded encrypted attachment [" + fileId + "] by user: " + requestingUsername);
 
         return new AttachmentDownload(attachment, fileBytes);
+    }
+
+    /**
+     * Streams an encrypted file attachment directly from quarantined disk storage.
+     */
+    @Transactional(readOnly = true)
+    public StreamingAttachmentDownload loadAttachmentStream(String fileId, String requestingUsername) throws IOException {
+        AttachmentEntity attachment = attachmentRepository.findByFileId(fileId)
+                .orElseThrow(() -> new ResourceNotFoundException("Attachment [" + fileId + "] not found"));
+
+        boolean isUploader = attachment.getUploader().getUsername().equalsIgnoreCase(requestingUsername);
+        boolean isRecipient = attachment.getRecipient().getUsername().equalsIgnoreCase(requestingUsername);
+
+        if (!isUploader && !isRecipient) {
+            log.warn("Unauthorized attachment stream attempt for [{}] by user '{}'", fileId, requestingUsername);
+            throw new AccessDeniedException("You are not authorized to download this attachment");
+        }
+
+        Path filePath = Paths.get(attachment.getStoragePath());
+        com.securechat.common.util.SafePathUtils.assertSafePath(this.uploadDirectory, filePath);
+
+        if (!Files.exists(filePath)) {
+            throw new ResourceNotFoundException("Physical file not found on server storage for attachment [" + fileId + "]");
+        }
+
+        recordAuditLog(isUploader ? attachment.getUploader() : attachment.getRecipient(),
+                AuditEventType.ATTACHMENT_DOWNLOAD,
+                "Streamed encrypted attachment [" + fileId + "] by user: " + requestingUsername);
+
+        java.io.InputStream stream = Files.newInputStream(filePath, StandardOpenOption.READ);
+        long size = Files.size(filePath);
+        return new StreamingAttachmentDownload(attachment, stream, size);
     }
 
     public EncryptedAttachmentDto mapToDto(AttachmentEntity entity) {
@@ -169,4 +265,5 @@ public class AttachmentService {
     }
 
     public record AttachmentDownload(AttachmentEntity metadata, byte[] data) {}
+    public record StreamingAttachmentDownload(AttachmentEntity metadata, java.io.InputStream stream, long fileLength) {}
 }

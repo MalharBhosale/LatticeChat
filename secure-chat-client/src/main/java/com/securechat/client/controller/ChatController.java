@@ -335,13 +335,14 @@ public class ChatController {
                 // 1. Client-Side Zero-Knowledge Encryption via AES-256-GCM
                 com.securechat.client.crypto.FileCryptoService fileCrypto = new com.securechat.client.crypto.FileCryptoService();
                 var payload = fileCrypto.encryptFile(file, sessionKey);
+                String safeFilename = com.securechat.common.util.SafePathUtils.sanitizeFilename(file.getName());
 
                 // 2. Upload ciphertext blob to quarantined storage
                 String nonceB64 = Base64.getEncoder().encodeToString(payload.nonce());
-                var uploadResp = api.uploadAttachment(peer, file.getName(), payload.mimeType(), nonceB64, payload.ciphertext());
+                var uploadResp = api.uploadAttachment(peer, safeFilename, payload.mimeType(), nonceB64, payload.ciphertext());
 
                 // 3. Send encrypted message payload referencing the attachment
-                String fileMsgText = "[FILE]:" + uploadResp.fileId() + ":" + file.getName() + ":" + file.length() + ":" + payload.mimeType();
+                String fileMsgText = "[FILE]:" + uploadResp.fileId() + ":" + safeFilename + ":" + file.length() + ":" + payload.mimeType();
                 SendMessageRequest request = sessionMgr.prepareOutgoingMessage(peer, fileMsgText, ephemeralKem, seq);
                 EncryptedMessageDto sentDto = api.sendMessage(request);
 
@@ -571,9 +572,10 @@ public class ChatController {
     }
 
     private void downloadAndDecryptAttachment(String fileId, String suggestedFilename, String peerUsername) {
+        String safeSuggestedName = com.securechat.common.util.SafePathUtils.sanitizeFilename(suggestedFilename);
         javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
         chooser.setTitle("Save Decrypted File");
-        chooser.setInitialFileName(suggestedFilename);
+        chooser.setInitialFileName(safeSuggestedName);
         java.io.File saveFile = chooser.showSaveDialog(currentUserLabel.getScene().getWindow());
         if (saveFile == null) return;
 
@@ -582,21 +584,27 @@ public class ChatController {
                 ClientContext ctx = ClientContext.getInstance();
                 ApiClient api = ctx.getApiClient();
 
-                // 1. Download encrypted ciphertext blob from server
-                byte[] ciphertext = api.downloadAttachment(fileId);
-
-                // 2. Fetch attachment metadata to obtain GCM nonce
+                // 1. Fetch attachment metadata to obtain GCM nonce
                 EncryptedAttachmentDto meta = api.getAttachmentMetadata(fileId);
                 byte[] nonce = Base64.getDecoder().decode(meta.nonceBase64());
 
-                // 3. Retrieve peer's session key
+                // 2. Retrieve peer's session key
                 String sessionKeyB64 = ctx.getStorage().getSessionKey(peerUsername)
                         .orElseThrow(() -> new IllegalStateException("Active session key not found for peer: " + peerUsername));
                 byte[] sessionKey = Base64.getDecoder().decode(sessionKeyB64);
 
-                // 4. Decrypt locally and verify 128-bit authentication tag
-                com.securechat.client.crypto.FileCryptoService fileCrypto = new com.securechat.client.crypto.FileCryptoService();
-                fileCrypto.decryptToFile(ciphertext, nonce, sessionKey, saveFile);
+                // 3. Stream encrypted ciphertext directly to temporary disk file
+                java.nio.file.Path tempEncFile = java.nio.file.Files.createTempFile("lattice_enc_", ".tmp");
+                try {
+                    api.downloadAttachmentStream(fileId, tempEncFile);
+
+                    // 4. Decrypt locally and verify 128-bit authentication tag
+                    com.securechat.client.crypto.FileCryptoService fileCrypto = new com.securechat.client.crypto.FileCryptoService();
+                    byte[] ciphertext = java.nio.file.Files.readAllBytes(tempEncFile);
+                    fileCrypto.decryptToFile(ciphertext, nonce, sessionKey, saveFile);
+                } finally {
+                    java.nio.file.Files.deleteIfExists(tempEncFile);
+                }
 
                 Platform.runLater(() -> showInfoAlert("Decryption Successful",
                         "File successfully decrypted and saved to:\n" + saveFile.getAbsolutePath()));

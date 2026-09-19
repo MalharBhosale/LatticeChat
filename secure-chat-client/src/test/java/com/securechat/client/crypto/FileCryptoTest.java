@@ -86,4 +86,28 @@ class FileCryptoTest {
                 fileCryptoService.encryptBytes(plaintext, badKey, "f.txt", "text/plain")
         );
     }
+
+    @Test
+    @DisplayName("Should encrypt and decrypt using authenticated streaming chunking matching exact contents")
+    void testStreamingFileEncryptionRoundtrip(@TempDir Path tempDir) throws IOException {
+        byte[] key = new byte[32];
+        new SecureRandom().nextBytes(key);
+
+        Path sourcePath = tempDir.resolve("stream_source.bin");
+        byte[] largeData = new byte[192 * 1024]; // 192 KB (3 chunks)
+        new SecureRandom().nextBytes(largeData);
+        Files.write(sourcePath, largeData);
+
+        Path encPath = tempDir.resolve("stream_enc.lttc");
+        Path decPath = tempDir.resolve("stream_dec.bin");
+
+        fileCryptoService.encryptFileStreaming(sourcePath.toFile(), encPath.toFile(), key, null);
+        assertTrue(Files.exists(encPath));
+
+        long decryptedBytes = fileCryptoService.decryptFileStreaming(encPath.toFile(), decPath.toFile(), key, null);
+        assertEquals(largeData.length, decryptedBytes);
+
+        byte[] recovered = Files.readAllBytes(decPath);
+        assertArrayEquals(largeData, recovered);
+    }
 }
