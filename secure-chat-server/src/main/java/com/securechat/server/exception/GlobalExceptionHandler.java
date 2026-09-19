@@ -48,6 +48,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error("Cryptographic error: " + ex.getMessage()));
     }
 
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        log.warn("Resource not found: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(SecureChatException.class)
     public ResponseEntity<ApiResponse<Void>> handleSecureChatException(SecureChatException ex) {
         log.warn("Application domain error: {}", ex.getMessage());
