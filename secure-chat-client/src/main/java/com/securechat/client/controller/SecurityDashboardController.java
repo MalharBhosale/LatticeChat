@@ -9,12 +9,16 @@ import com.securechat.common.dto.AuditLogDto;
 import com.securechat.common.dto.OneTimePrekeyUploadDto;
 import com.securechat.common.dto.RotateKeyBundleRequest;
 import com.securechat.common.dto.UploadPrekeysRequest;
+import com.securechat.common.crypto.benchmark.PqcBenchmarkRunner;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextArea;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
@@ -35,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
  * 2. NIST FIPS 203/204 Post-Quantum Cryptographic parameters (ML-KEM-768, ML-DSA-65, AES-256-GCM, HKDF).
  * 3. Client Keystore telemetry & One-Time Prekey (OPK) pool health.
  * 4. Real-time server cryptographic audit event logs.
+ * 5. Live hardware microbenchmark execution and report export.
  */
 public class SecurityDashboardController {
 
@@ -85,6 +90,28 @@ public class SecurityDashboardController {
     @FXML
     private VBox auditLogsList;
 
+    @FXML
+    private Label benchmarkStatusLabel;
+
+    @FXML
+    private Button btnRunBenchmark;
+
+    @FXML
+    private Button btnCopyMarkdown;
+
+    @FXML
+    private Label handshakeLatencyBadge;
+
+    @FXML
+    private Label handshakeTotalLatencyLabel;
+
+    @FXML
+    private Label handshakeWireOverheadLabel;
+
+    @FXML
+    private TextArea benchmarkConsoleArea;
+
+    private String lastBenchmarkMarkdown;
     private String currentPeer;
 
     /**
@@ -380,6 +407,59 @@ public class SecurityDashboardController {
             return String.format("%06d %06d", num1 % 1000000L, num2 % 1000000L);
         } catch (Exception e) {
             return "000000 000000";
+        }
+    }
+
+    @FXML
+    private void handleRunBenchmark(ActionEvent event) {
+        btnRunBenchmark.setDisable(true);
+        btnCopyMarkdown.setDisable(true);
+        benchmarkStatusLabel.setText("Executing microbenchmarks (warmup + measurement iterations)...");
+        benchmarkConsoleArea.setText("Initializing PqcBenchmarkRunner...\nMeasuring ML-KEM-768/1024, ML-DSA-65/87, AES-256-GCM, and PQ-X3DH session handshake...\nPlease wait (approx 2-3 seconds)...");
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                PqcBenchmarkRunner runner = new PqcBenchmarkRunner(15, 50);
+                runner.runAll();
+                String consoleReport = runner.generateConsoleReport();
+                String markdownReport = runner.generateMarkdownReport();
+                PqcBenchmarkRunner.SessionHandshakeBenchmarkResult sessionRes = runner.getSessionResult();
+
+                Platform.runLater(() -> {
+                    this.lastBenchmarkMarkdown = markdownReport;
+                    benchmarkConsoleArea.setText(consoleReport);
+                    benchmarkStatusLabel.setText("Microbenchmarks finished successfully!");
+                    btnRunBenchmark.setDisable(false);
+                    btnCopyMarkdown.setDisable(false);
+
+                    if (sessionRes != null) {
+                        handshakeLatencyBadge.setText("MEASURED");
+                        handshakeLatencyBadge.setStyle("-fx-background-color: #064e3b; -fx-text-fill: #34d399; -fx-background-radius: 4px; -fx-padding: 2 6;");
+                        handshakeTotalLatencyLabel.setText(String.format("%.2f ms (Alice: %.2f ms | Bob: %.2f ms)",
+                                sessionRes.totalHandshakeLatencyMs(), sessionRes.aliceLatencyMs(), sessionRes.bobLatencyMs()));
+                        handshakeWireOverheadLabel.setText(String.format("%,d Bytes (%.2f KB across 3 keys + 1 signature)",
+                                sessionRes.totalWireBytes(), sessionRes.totalWireBytes() / 1024.0));
+                    }
+                });
+            } catch (Exception e) {
+                log.error("Live hardware benchmark failed", e);
+                Platform.runLater(() -> {
+                    benchmarkStatusLabel.setText("Benchmark execution failed: " + e.getMessage());
+                    benchmarkConsoleArea.setText("Error running benchmark:\n" + e.toString());
+                    btnRunBenchmark.setDisable(false);
+                });
+            }
+        });
+    }
+
+    @FXML
+    private void handleCopyBenchmarkMarkdown(ActionEvent event) {
+        if (lastBenchmarkMarkdown != null && !lastBenchmarkMarkdown.isBlank()) {
+            Clipboard clipboard = Clipboard.getSystemClipboard();
+            ClipboardContent content = new ClipboardContent();
+            content.putString(lastBenchmarkMarkdown);
+            clipboard.setContent(content);
+            benchmarkStatusLabel.setText("Report copied to system clipboard (Markdown formatted)!");
         }
     }
 

@@ -4,13 +4,16 @@ import com.securechat.common.crypto.EncryptionService;
 import com.securechat.common.crypto.KeyExchangeService;
 import com.securechat.common.crypto.SignatureService;
 import com.securechat.common.crypto.impl.AesGcmEncryptionService;
+import com.securechat.common.crypto.impl.HkdfKeyDerivationService;
 import com.securechat.common.crypto.impl.MlDsaSignatureService;
 import com.securechat.common.crypto.impl.MlKemKeyExchangeService;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyAgreement;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.security.*;
 import java.security.spec.ECGenParameterSpec;
 import java.util.*;
@@ -23,6 +26,7 @@ import java.util.*;
  * 1. Key Encapsulation: ML-KEM-768, ML-KEM-1024, ECDH (P-256), RSA-3072.
  * 2. Digital Signatures: ML-DSA-65, ML-DSA-87, ECDSA (P-256), RSA-3072.
  * 3. Authenticated Symmetric Encryption: AES-256-GCM (1 KB, 64 KB, 1 MB).
+ * 4. End-to-End Asynchronous Session Handshake: PQ-X3DH (ML-KEM + ML-DSA + HKDF).
  *
  * Produces structured results in Console, Markdown, and LaTeX formats
  * suitable for academic thesis publication and defense presentation.
@@ -62,17 +66,58 @@ public class PqcBenchmarkRunner {
             double throughputMbps
     ) {}
 
+    public record SessionHandshakeBenchmarkResult(
+            String protocol,
+            double totalHandshakeMicros,
+            double aliceKeyGenMicros,
+            double encapSpkMicros,
+            double encapOpkMicros,
+            double derivationMicros,
+            double signMicros,
+            double verifyMicros,
+            double bobDecapMicros,
+            int transmittedBytes
+    ) {
+        public double totalHandshakeLatencyMs() {
+            return totalHandshakeMicros / 1000.0;
+        }
+
+        public double aliceLatencyMs() {
+            return (aliceKeyGenMicros + encapSpkMicros + encapOpkMicros + derivationMicros + signMicros) / 1000.0;
+        }
+
+        public double bobLatencyMs() {
+            return (verifyMicros + bobDecapMicros) / 1000.0;
+        }
+
+        public int totalWireBytes() {
+            return transmittedBytes;
+        }
+    }
+
     public record BenchmarkSuiteReport(
             List<KemBenchmarkResult> kemResults,
             List<DsaBenchmarkResult> dsaResults,
             List<SymmetricBenchmarkResult> symmetricResults,
+            SessionHandshakeBenchmarkResult sessionHandshakeResult,
             int iterations,
             String cpuModel,
             String javaVersion
-    ) {}
+    ) {
+        public BenchmarkSuiteReport(
+                List<KemBenchmarkResult> kemResults,
+                List<DsaBenchmarkResult> dsaResults,
+                List<SymmetricBenchmarkResult> symmetricResults,
+                int iterations,
+                String cpuModel,
+                String javaVersion) {
+            this(kemResults, dsaResults, symmetricResults, null, iterations, cpuModel, javaVersion);
+        }
+    }
 
     private final int warmupIterations;
     private final int measurementIterations;
+    private BenchmarkSuiteReport lastReport;
 
     public PqcBenchmarkRunner() {
         this(50, 200);
@@ -83,33 +128,88 @@ public class PqcBenchmarkRunner {
         this.measurementIterations = measurementIterations;
     }
 
+    public BenchmarkSuiteReport getLastReport() {
+        return lastReport;
+    }
+
+    public SessionHandshakeBenchmarkResult getSessionResult() {
+        return lastReport != null ? lastReport.sessionHandshakeResult() : null;
+    }
+
+    public String generateConsoleReport() {
+        BenchmarkSuiteReport report = (lastReport != null) ? lastReport : runAll();
+        return formatConsoleReport(report);
+    }
+
+    public String generateMarkdownReport() {
+        BenchmarkSuiteReport report = (lastReport != null) ? lastReport : runAll();
+        return formatMarkdownReport(report);
+    }
+
     public static void main(String[] args) {
+        int warmup = 100;
+        int measure = 500;
+        String exportFile = null;
+
+        for (int i = 0; i < args.length; i++) {
+            if ("--quick".equals(args[i])) {
+                warmup = 15;
+                measure = 50;
+            } else if ("--iterations".equals(args[i]) && i + 1 < args.length) {
+                measure = Integer.parseInt(args[++i]);
+            } else if ("--export-file".equals(args[i]) && i + 1 < args.length) {
+                exportFile = args[++i];
+            }
+        }
+
         System.out.println("===============================================================");
         System.out.println("  LatticeChat Post-Quantum Cryptography Benchmarking Suite     ");
         System.out.println("===============================================================");
-        PqcBenchmarkRunner runner = new PqcBenchmarkRunner(100, 500);
+        System.out.printf("Warmup: %d iterations | Measurement: %d iterations%n%n", warmup, measure);
+
+        PqcBenchmarkRunner runner = new PqcBenchmarkRunner(warmup, measure);
         BenchmarkSuiteReport report = runner.runAll();
-        System.out.println(runner.formatConsoleReport(report));
+
+        String consoleOutput = runner.formatConsoleReport(report);
+        System.out.println(consoleOutput);
+
+        String markdownOutput = runner.formatMarkdownReport(report);
         System.out.println("\n--- Markdown Report ---\n");
-        System.out.println(runner.formatMarkdownReport(report));
+        System.out.println(markdownOutput);
+
+        if (exportFile != null) {
+            try {
+                File file = new File(exportFile);
+                if (file.getParentFile() != null) {
+                    file.getParentFile().mkdirs();
+                }
+                Files.writeString(file.toPath(), markdownOutput, StandardCharsets.UTF_8);
+                System.out.println("\n[SUCCESS] Benchmark report successfully exported to: " + file.getAbsolutePath());
+            } catch (Exception e) {
+                System.err.println("[ERROR] Failed to export report to " + exportFile + ": " + e.getMessage());
+            }
+        }
     }
 
     public BenchmarkSuiteReport runAll() {
         List<KemBenchmarkResult> kemResults = benchmarkKem();
         List<DsaBenchmarkResult> dsaResults = benchmarkDsa();
         List<SymmetricBenchmarkResult> symmetricResults = benchmarkSymmetric();
+        SessionHandshakeBenchmarkResult sessionResult = benchmarkPqX3dhHandshake();
 
         String javaVersion = System.getProperty("java.version") + " (" + System.getProperty("java.vendor") + ")";
         String cpuModel = System.getProperty("os.arch") + " with " + Runtime.getRuntime().availableProcessors() + " cores";
 
-        return new BenchmarkSuiteReport(
+        this.lastReport = new BenchmarkSuiteReport(
                 kemResults,
                 dsaResults,
                 symmetricResults,
+                sessionResult,
                 measurementIterations,
                 cpuModel,
                 javaVersion
         );
+        return this.lastReport;
     }
 
     // =========================================================================
@@ -219,8 +319,8 @@ public class PqcBenchmarkRunner {
                     avgAgree, // symmetric agreement
                     sampleA.getPublic().getEncoded().length,
                     sampleA.getPrivate().getEncoded().length,
-                    sampleB.getPublic().getEncoded().length, // public key exchanged
-                    32 // 256-bit secret
+                    sampleB.getPublic().getEncoded().length,
+                    32
             );
         } catch (Exception e) {
             throw new RuntimeException("ECDH benchmark error: " + e.getMessage(), e);
@@ -248,7 +348,7 @@ public class PqcBenchmarkRunner {
             long totalKeyGen = 0;
             long totalEncap = 0;
             long totalDecap = 0;
-            int rsaIters = Math.min(measurementIterations, 50); // RSA-3072 keygen is computationally expensive
+            int rsaIters = Math.min(measurementIterations, 50);
 
             cipher.init(Cipher.ENCRYPT_MODE, sampleKp.getPublic());
             byte[] sampleCt = cipher.doFinal(dummySecret);
@@ -521,7 +621,125 @@ public class PqcBenchmarkRunner {
     }
 
     // =========================================================================
-    // 4. Report Formatting: Console, Markdown, and LaTeX
+    // 4. End-to-End Session Handshake Benchmarking (PQ-X3DH)
+    // =========================================================================
+
+    public SessionHandshakeBenchmarkResult benchmarkPqX3dhHandshake() {
+        KeyExchangeService kem = MlKemKeyExchangeService.mlKem768();
+        SignatureService dsa = MlDsaSignatureService.mlDsa65();
+        HkdfKeyDerivationService hkdf = new HkdfKeyDerivationService();
+
+        // Setup Bob's pre-published cryptographic identity and prekeys
+        SignatureService.SignatureKeyPair bobIdKey = dsa.generateKeyPair();
+        KeyExchangeService.KemKeyPair bobSpk = kem.generateKeyPair();
+        byte[] bobSpkSig = dsa.sign(bobSpk.publicKey(), bobIdKey.privateKey());
+        KeyExchangeService.KemKeyPair bobOpk = kem.generateKeyPair();
+
+        SignatureService.SignatureKeyPair aliceIdKey = dsa.generateKeyPair();
+
+        // Warmup
+        for (int i = 0; i < Math.min(warmupIterations, 30); i++) {
+            KeyExchangeService.KemKeyPair aliceEphemeral = kem.generateKeyPair();
+            KeyExchangeService.KemSecret spkSecret = kem.encapsulate(bobSpk.publicKey());
+            KeyExchangeService.KemSecret opkSecret = kem.encapsulate(bobOpk.publicKey());
+            byte[] combinedSecret = new byte[64];
+            System.arraycopy(spkSecret.sharedSecret(), 0, combinedSecret, 0, 32);
+            System.arraycopy(opkSecret.sharedSecret(), 0, combinedSecret, 32, 32);
+            byte[] masterKey = hkdf.deriveKey(combinedSecret, "LatticeChat-PQX3DH-v1".getBytes(StandardCharsets.UTF_8), null, 32);
+            byte[] aliceSig = dsa.sign(aliceEphemeral.publicKey(), aliceIdKey.privateKey());
+            dsa.verify(aliceEphemeral.publicKey(), aliceSig, aliceIdKey.publicKey());
+            kem.decapsulate(bobSpk.privateKey(), spkSecret.encapsulationCiphertext());
+            kem.decapsulate(bobOpk.privateKey(), opkSecret.encapsulationCiphertext());
+        }
+
+        long totalKeyGen = 0;
+        long totalEncapSpk = 0;
+        long totalEncapOpk = 0;
+        long totalDerive = 0;
+        long totalSign = 0;
+        long totalVerify = 0;
+        long totalBobDecap = 0;
+        long totalFullHandshake = 0;
+
+        int iters = measurementIterations;
+        for (int i = 0; i < iters; i++) {
+            long tStart = System.nanoTime();
+
+            // 1. Alice generates ephemeral KEM keypair
+            long t0 = System.nanoTime();
+            KeyExchangeService.KemKeyPair aliceEphemeral = kem.generateKeyPair();
+            long t1 = System.nanoTime();
+            totalKeyGen += (t1 - t0);
+
+            // 2. Alice encapsulates to Bob's signed prekey (ML-KEM-768)
+            long t2 = System.nanoTime();
+            KeyExchangeService.KemSecret spkSecret = kem.encapsulate(bobSpk.publicKey());
+            long t3 = System.nanoTime();
+            totalEncapSpk += (t3 - t2);
+
+            // 3. Alice encapsulates to Bob's one-time prekey (ML-KEM-768)
+            long t4 = System.nanoTime();
+            KeyExchangeService.KemSecret opkSecret = kem.encapsulate(bobOpk.publicKey());
+            long t5 = System.nanoTime();
+            totalEncapOpk += (t5 - t4);
+
+            // 4. Alice derives shared master key via HKDF-SHA256
+            long t6 = System.nanoTime();
+            byte[] combinedSecret = new byte[64];
+            System.arraycopy(spkSecret.sharedSecret(), 0, combinedSecret, 0, 32);
+            System.arraycopy(opkSecret.sharedSecret(), 0, combinedSecret, 32, 32);
+            byte[] aliceMasterKey = hkdf.deriveKey(combinedSecret, "LatticeChat-PQX3DH-v1".getBytes(StandardCharsets.UTF_8), null, 32);
+            long t7 = System.nanoTime();
+            totalDerive += (t7 - t6);
+
+            // 5. Alice signs ephemeral key with her ML-DSA-65 identity key
+            long t8 = System.nanoTime();
+            byte[] signature = dsa.sign(aliceEphemeral.publicKey(), aliceIdKey.privateKey());
+            long t9 = System.nanoTime();
+            totalSign += (t9 - t8);
+
+            // 6. Bob verifies Alice's signature
+            long t10 = System.nanoTime();
+            boolean validSig = dsa.verify(aliceEphemeral.publicKey(), signature, aliceIdKey.publicKey());
+            long t11 = System.nanoTime();
+            totalVerify += (t11 - t10);
+
+            // 7. Bob decapsulates shared secrets and derives identical master key
+            long t12 = System.nanoTime();
+            byte[] bobSpkSecret = kem.decapsulate(bobSpk.privateKey(), spkSecret.encapsulationCiphertext());
+            byte[] bobOpkSecret = kem.decapsulate(bobOpk.privateKey(), opkSecret.encapsulationCiphertext());
+            byte[] bobCombined = new byte[64];
+            System.arraycopy(bobSpkSecret, 0, bobCombined, 0, 32);
+            System.arraycopy(bobOpkSecret, 0, bobCombined, 32, 32);
+            byte[] bobMasterKey = hkdf.deriveKey(bobCombined, "LatticeChat-PQX3DH-v1".getBytes(StandardCharsets.UTF_8), null, 32);
+            long t13 = System.nanoTime();
+            totalBobDecap += (t13 - t12);
+
+            long tEnd = System.nanoTime();
+            totalFullHandshake += (tEnd - tStart);
+        }
+
+        int transmittedBytes = 1184 /* Alice Ephemeral PK */
+                + 1088 /* SPK Ciphertext */
+                + 1088 /* OPK Ciphertext */
+                + 3309 /* ML-DSA-65 Signature */;
+
+        return new SessionHandshakeBenchmarkResult(
+                "PQ-X3DH (ML-KEM-768 + ML-DSA-65 + HKDF)",
+                (totalFullHandshake / (double) iters) / 1000.0,
+                (totalKeyGen / (double) iters) / 1000.0,
+                (totalEncapSpk / (double) iters) / 1000.0,
+                (totalEncapOpk / (double) iters) / 1000.0,
+                (totalDerive / (double) iters) / 1000.0,
+                (totalSign / (double) iters) / 1000.0,
+                (totalVerify / (double) iters) / 1000.0,
+                (totalBobDecap / (double) iters) / 1000.0,
+                transmittedBytes
+        );
+    }
+
+    // =========================================================================
+    // 5. Report Formatting: Console, Markdown, and LaTeX
     // =========================================================================
 
     public String formatConsoleReport(BenchmarkSuiteReport report) {
@@ -556,12 +774,33 @@ public class PqcBenchmarkRunner {
             sb.append(String.format("%-15s | %-12s | %12.2f | %12.2f | %18.2f\n",
                     r.algorithm(), sizeStr, r.encryptMicros(), r.decryptMicros(), r.throughputMbps()));
         }
+
+        if (report.sessionHandshakeResult() != null) {
+            SessionHandshakeBenchmarkResult h = report.sessionHandshakeResult();
+            sb.append("\n4. End-to-End Session Handshake Latency (PQ-X3DH):\n");
+            sb.append(String.format("Protocol: %s\n", h.protocol()));
+            sb.append(String.format("Total End-to-End Handshake Latency: %10.2f us (%.2f ms)\n", h.totalHandshakeMicros(), h.totalHandshakeMicros() / 1000.0));
+            sb.append(String.format("  - Alice Ephemeral KeyGen:       %10.2f us\n", h.aliceKeyGenMicros()));
+            sb.append(String.format("  - Alice Signed Prekey Encap:    %10.2f us\n", h.encapSpkMicros()));
+            sb.append(String.format("  - Alice One-Time Prekey Encap:  %10.2f us\n", h.encapOpkMicros()));
+            sb.append(String.format("  - Alice HKDF-SHA256 Derivation: %10.2f us\n", h.derivationMicros()));
+            sb.append(String.format("  - Alice ML-DSA-65 Signature:    %10.2f us\n", h.signMicros()));
+            sb.append(String.format("  - Bob Signature Verification:   %10.2f us\n", h.verifyMicros()));
+            sb.append(String.format("  - Bob Dual Decapsulation:       %10.2f us\n", h.bobDecapMicros()));
+            sb.append(String.format("Total Handshake Wire Payload:     %10d bytes (%.2f KB)\n", h.transmittedBytes(), h.transmittedBytes() / 1024.0));
+        }
+
         return sb.toString();
     }
 
     public String formatMarkdownReport(BenchmarkSuiteReport report) {
         StringBuilder sb = new StringBuilder();
-        sb.append("### Post-Quantum Key Encapsulation (KEM) Benchmarks\n\n");
+        sb.append("# LatticeChat Cryptographic Performance Benchmark Report\n\n");
+        sb.append(String.format("**Hardware Platform**: `%s`  \n", report.cpuModel()));
+        sb.append(String.format("**Java Runtime**: `%s`  \n", report.javaVersion()));
+        sb.append(String.format("**Measurement Iterations**: `%d`  \n\n", report.iterations()));
+
+        sb.append("### 1. Post-Quantum Key Encapsulation (KEM) Benchmarks\n\n");
         sb.append("| Algorithm | Standard | Category | KeyGen (μs) | Encap (μs) | Decap (μs) | Public Key | Private Key | Ciphertext |\n");
         sb.append("| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |\n");
         for (KemBenchmarkResult r : report.kemResults()) {
@@ -571,7 +810,7 @@ public class PqcBenchmarkRunner {
                     r.publicKeyBytes(), r.privateKeyBytes(), r.ciphertextBytes()));
         }
 
-        sb.append("\n### Post-Quantum Digital Signature (DSA) Benchmarks\n\n");
+        sb.append("\n### 2. Post-Quantum Digital Signature (DSA) Benchmarks\n\n");
         sb.append("| Algorithm | Standard | Category | KeyGen (μs) | Sign (μs) | Verify (μs) | Public Key | Private Key | Signature |\n");
         sb.append("| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |\n");
         for (DsaBenchmarkResult r : report.dsaResults()) {
@@ -581,7 +820,7 @@ public class PqcBenchmarkRunner {
                     r.publicKeyBytes(), r.privateKeyBytes(), r.signatureBytes()));
         }
 
-        sb.append("\n### Authenticated Symmetric Encryption (AES-256-GCM)\n\n");
+        sb.append("\n### 3. Authenticated Symmetric Encryption (AES-256-GCM)\n\n");
         sb.append("| Algorithm | Payload Size | Encryption Latency (μs) | Decryption Latency (μs) | Throughput (MB/s) |\n");
         sb.append("| :--- | :---: | :---: | :---: | :---: |\n");
         for (SymmetricBenchmarkResult r : report.symmetricResults()) {
@@ -589,6 +828,24 @@ public class PqcBenchmarkRunner {
             sb.append(String.format("| **%s** | %s | `%.1f` | `%.1f` | **%.2f MB/s** |\n",
                     r.algorithm(), sizeStr, r.encryptMicros(), r.decryptMicros(), r.throughputMbps()));
         }
+
+        if (report.sessionHandshakeResult() != null) {
+            SessionHandshakeBenchmarkResult h = report.sessionHandshakeResult();
+            sb.append("\n### 4. End-to-End Session Handshake Latency (PQ-X3DH)\n\n");
+            sb.append(String.format("**Protocol**: `%s`  \n", h.protocol()));
+            sb.append(String.format("**Total Handshake Latency**: **`%.2f ms`** (`%.1f μs`)  \n", h.totalHandshakeMicros() / 1000.0, h.totalHandshakeMicros()));
+            sb.append(String.format("**Wire Protocol Overhead**: **`%d bytes`** (`%.2f KB`)  \n\n", h.transmittedBytes(), h.transmittedBytes() / 1024.0));
+            sb.append("| Phase | Step Description | Latency (μs) |\n");
+            sb.append("| :--- | :--- | :---: |\n");
+            sb.append(String.format("| Phase 1 | Alice Ephemeral KEM KeyGen (ML-KEM-768) | `%.1f` |\n", h.aliceKeyGenMicros()));
+            sb.append(String.format("| Phase 2 | Alice Signed Prekey Encap (ML-KEM-768) | `%.1f` |\n", h.encapSpkMicros()));
+            sb.append(String.format("| Phase 3 | Alice One-Time Prekey Encap (ML-KEM-768) | `%.1f` |\n", h.encapOpkMicros()));
+            sb.append(String.format("| Phase 4 | Alice HKDF-SHA256 Key Derivation | `%.1f` |\n", h.derivationMicros()));
+            sb.append(String.format("| Phase 5 | Alice ML-DSA-65 Identity Signature | `%.1f` |\n", h.signMicros()));
+            sb.append(String.format("| Phase 6 | Bob ML-DSA-65 Signature Verification | `%.1f` |\n", h.verifyMicros()));
+            sb.append(String.format("| Phase 7 | Bob Dual KEM Decapsulation & HKDF | `%.1f` |\n", h.bobDecapMicros()));
+        }
+
         return sb.toString();
     }
 

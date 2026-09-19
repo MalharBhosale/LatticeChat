@@ -264,5 +264,54 @@
                 </ScrollPane>
             </VBox>
         </Tab>
+
+        <!-- TAB 5: PQC LIVE BENCHMARK SUITE -->
+        <Tab text="  ⚡ Live PQC Benchmarks  ">
+            <ScrollPane fitToWidth="true" hbarPolicy="NEVER" styleClass="dashboard-scroll-pane">
+                <VBox spacing="14" styleClass="tab-content-container">
+                    <padding>
+                        <Insets top="14" right="14" bottom="14" left="14"/>
+                    </padding>
+
+                    <!-- Benchmark Controls Card -->
+                    <HBox alignment="CENTER_LEFT" spacing="12" styleClass="session-banner-card">
+                        <VBox spacing="2" HBox.hgrow="ALWAYS">
+                            <Label text="Post-Quantum Microbenchmark Suite (FIPS 203/204 vs Classical)" styleClass="field-label"/>
+                            <Label fx:id="benchmarkStatusLabel" text="Ready to execute hardware benchmarking on your CPU." styleClass="card-hint"/>
+                        </VBox>
+                        <Button fx:id="btnRunBenchmark" text="🚀 Run Live Hardware Benchmark" onAction="#handleRunBenchmark" styleClass="primary-button"/>
+                        <Button fx:id="btnCopyMarkdown" text="📋 Copy Report" onAction="#handleCopyBenchmarkMarkdown" styleClass="secondary-button" disable="true"/>
+                    </HBox>
+
+                    <!-- Handshake Summary Card -->
+                    <VBox spacing="6" styleClass="spec-card">
+                        <padding><Insets top="12" right="14" bottom="12" left="14"/></padding>
+                        <HBox alignment="CENTER_LEFT" spacing="8">
+                            <Label text="PQ-X3DH End-to-End Cryptographic Handshake" styleClass="spec-card-title"/>
+                            <Label fx:id="handshakeLatencyBadge" text="PENDING" styleClass="spec-badge"/>
+                        </HBox>
+                        <GridPane hgap="12" vgap="4" styleClass="spec-grid">
+                            <Label text="Protocol Standard:" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                            <Label text="PQ-X3DH (ML-KEM-768 + ML-DSA-65 + HKDF-SHA256)" styleClass="inspector-value" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                            <Label text="Total Handshake Latency:" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                            <Label fx:id="handshakeTotalLatencyLabel" text="Run benchmark to measure" styleClass="inspector-value" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                            <Label text="Wire Overhead:" styleClass="field-label" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                            <Label fx:id="handshakeWireOverheadLabel" text="6,669 Bytes (6.51 KB)" styleClass="inspector-value" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                        </GridPane>
+                    </VBox>
+
+                    <!-- Live Benchmark Results Output -->
+                    <VBox spacing="6" styleClass="spec-card">
+                        <padding><Insets top="12" right="14" bottom="12" left="14"/></padding>
+                        <Label text="MEASURED CRYPTOGRAPHIC TELEMETRY" styleClass="spec-card-title"/>
+                        <TextArea fx:id="benchmarkConsoleArea" editable="false" prefRowCount="14"
+                                  style="-fx-font-family: 'Consolas', 'Courier New', monospace; -fx-font-size: 11px; -fx-control-inner-background: #0f172a; -fx-text-fill: #38bdf8; -fx-border-color: #334155; -fx-border-radius: 4px;"
+                                  text="Click 'Run Live Hardware Benchmark' to measure ML-KEM, ML-DSA, AES-256-GCM, and PQ-X3DH on this system..."/>
+                    </VBox>
+                </VBox>
+            </ScrollPane>
+        </Tab>
     </TabPane>
 </VBox>

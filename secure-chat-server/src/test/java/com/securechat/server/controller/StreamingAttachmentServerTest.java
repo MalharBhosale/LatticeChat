@@ -22,10 +22,12 @@ import java.util.Base64;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -111,10 +113,13 @@ class StreamingAttachmentServerTest {
         // 2. Bob downloads via streaming endpoint /api/v1/attachments/{fileId}/stream
         MvcResult mvcResult = mockMvc.perform(get("/api/v1/attachments/" + fileId + "/stream")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + bobToken))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(mvcResult))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-LatticeChat-Nonce", nonceB64))
-                .andExpect(header().string("X-LatticeChat-Mime", "application/pdf"))
-                .andReturn();
+                .andExpect(header().string("X-LatticeChat-Mime", "application/pdf"));
 
         byte[] downloadedBytes = mvcResult.getResponse().getContentAsByteArray();
         assertArrayEquals(payloadBytes, downloadedBytes);
