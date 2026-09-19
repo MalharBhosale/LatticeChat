@@ -1,0 +1,51 @@
+# ==============================================================================
+# Multi-stage Dockerfile for LatticeChat Server (Spring Boot 3 + Java 21)
+# ==============================================================================
+
+# --- Stage 1: Build & Package ---
+FROM maven:3.9.9-eclipse-temurin-21-alpine AS builder
+
+WORKDIR /build
+
+# Cache maven dependencies
+COPY pom.xml ./
+COPY secure-chat-common/pom.xml secure-chat-common/
+COPY secure-chat-server/pom.xml secure-chat-server/
+COPY secure-chat-client/pom.xml secure-chat-client/
+
+RUN mvn dependency:go-offline -B -pl secure-chat-server -am || true
+
+# Copy source code and build server JAR
+COPY secure-chat-common/ secure-chat-common/
+COPY secure-chat-server/ secure-chat-server/
+
+RUN mvn clean package -pl secure-chat-server -am -DskipTests -DfinalName=lattice-chat-server
+
+# --- Stage 2: Minimal Distroless / Alpine Runtime ---
+FROM eclipse-temurin:21-jre-alpine
+
+LABEL maintainer="Malhar Bhosale <https://github.com/MalharBhosale>"
+LABEL description="LatticeChat Post-Quantum Cryptographic Secure Messaging Server"
+
+WORKDIR /app
+
+# Create unprivileged application user for security
+RUN addgroup -S securechat && adduser -S securechat -G securechat && \
+    mkdir -p /app/uploads && \
+    chown -R securechat:securechat /app
+
+USER securechat
+
+# Copy compiled JAR from builder stage
+COPY --from=builder --chown=securechat:securechat /build/secure-chat-server/target/lattice-chat-server.jar /app/app.jar
+
+ENV SERVER_PORT=8080 \
+    SPRING_PROFILES_ACTIVE=prod \
+    JAVA_OPTS="-XX:+UseG1GC -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget -q -O /dev/null http://localhost:8080/api/v1/auth/check || exit 1
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]

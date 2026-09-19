@@ -1,0 +1,60 @@
+# ==============================================================================
+# LatticeChat Server — Production Configuration Profile (prod)
+# ==============================================================================
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+spring:
+  application:
+    name: secure-chat-server
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:securechat_db}?createDatabaseIfNotExist=false&useSSL=${DB_USE_SSL:true}&allowPublicKeyRetrieval=${DB_ALLOW_PUBLIC_KEY:false}&serverTimezone=UTC&characterEncoding=UTF-8
+    username: ${DB_USER:securechat_app}
+    password: ${DB_PASSWORD:StrongProductionPassword2026!}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: LatticeChatHikariPool
+      maximum-pool-size: ${DB_POOL_MAX:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 20000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          batch_size: 25
+          order_inserts: true
+          order_updates: true
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+app:
+  jwt:
+    # Production secret must be at least 256-bit cryptographically random key provided via environment variable
+    secret: ${JWT_SECRET:c87b92df44e240a5b4819d9b6e828472f85419da3729e8832a8df8d045d4817a2}
+    expiration-ms: 86400000 # 24 hours
+  crypto:
+    kem-algorithm: ML-KEM-768
+    dsa-algorithm: ML-DSA-65
+
+logging:
+  level:
+    root: INFO
+    org.springframework.web: WARN
+    org.springframework.security: WARN
+    org.hibernate: WARN
+    com.securechat.server: INFO

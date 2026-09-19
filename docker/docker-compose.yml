@@ -1,0 +1,78 @@
+version: '3.8'
+
+# ==============================================================================
+# LatticeChat Production Orchestration Specification (Docker Compose)
+# ==============================================================================
+
+services:
+  mysql:
+    image: mysql:8.0.39
+    container_name: latticechat-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: securechat_db
+      MYSQL_USER: securechat_app
+      MYSQL_PASSWORD: StrongProductionPassword2026!
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../database/data.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - latticechat-net
+
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.server
+    container_name: latticechat-server
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: securechat_db
+      DB_USER: securechat_app
+      DB_PASSWORD: StrongProductionPassword2026!
+      DB_USE_SSL: "false"
+      DB_ALLOW_PUBLIC_KEY: "true"
+      JWT_SECRET: c87b92df44e240a5b4819d9b6e828472f85419da3729e8832a8df8d045d4817a2
+    ports:
+      - "8080:8080"
+    volumes:
+      - server_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/api/v1/auth/check"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    networks:
+      - latticechat-net
+
+volumes:
+  mysql_data:
+    name: latticechat_mysql_data
+  server_uploads:
+    name: latticechat_server_uploads
+
+networks:
+  latticechat-net:
+    name: latticechat_network
+    driver: bridge
