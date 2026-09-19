@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<StackPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.securechat.client.controller.LoginController"
+           styleClass="root-pane">
+
+    <VBox alignment="CENTER" spacing="20" maxWidth="480" styleClass="auth-card">
+        <padding>
+            <Insets top="35" right="35" bottom="35" left="35"/>
+        </padding>
+
+        <!-- Header / Logo -->
+        <VBox alignment="CENTER" spacing="6">
+            <Label text="🛡️ LatticeChat" styleClass="app-title"/>
+            <Label text="Post-Quantum Cryptography Secure Messaging" styleClass="app-subtitle"/>
+            <Label text="FIPS 203 (ML-KEM-768) • FIPS 204 (ML-DSA-65) • AES-256-GCM" styleClass="app-badge"/>
+        </VBox>
+
+        <!-- Server URL -->
+        <VBox spacing="6">
+            <Label text="Backend API Endpoint" styleClass="field-label"/>
+            <TextField fx:id="serverUrlField" promptText="http://localhost:8080/api/v1" styleClass="input-field"/>
+        </VBox>
+
+        <!-- Tabs -->
+        <TabPane fx:id="authTabPane" tabClosingPolicy="UNAVAILABLE" styleClass="auth-tabs">
+            <!-- Login Tab -->
+            <Tab text="Sign In">
+                <VBox spacing="14">
+                    <padding>
+                        <Insets top="18" right="4" bottom="10" left="4"/>
+                    </padding>
+
+                    <VBox spacing="5">
+                        <Label text="Username" styleClass="field-label"/>
+                        <TextField fx:id="loginUsernameField" promptText="Enter your username" styleClass="input-field"/>
+                    </VBox>
+
+                    <VBox spacing="5">
+                        <Label text="Password" styleClass="field-label"/>
+                        <PasswordField fx:id="loginPasswordField" promptText="Enter your master password" styleClass="input-field"/>
+                    </VBox>
+
+                    <Button fx:id="btnLogin" text="Unlock &amp; Sign In" onAction="#handleLogin"
+                            maxWidth="Infinity" styleClass="primary-button"/>
+
+                    <Label fx:id="loginStatusLabel" wrapText="true" styleClass="status-label"/>
+                </VBox>
+            </Tab>
+
+            <!-- Register Tab -->
+            <Tab text="Create Account">
+                <VBox spacing="12">
+                    <padding>
+                        <Insets top="16" right="4" bottom="10" left="4"/>
+                    </padding>
+
+                    <VBox spacing="4">
+                        <Label text="Username" styleClass="field-label"/>
+                        <TextField fx:id="regUsernameField" promptText="e.g. alice" styleClass="input-field"/>
+                    </VBox>
+
+                    <VBox spacing="4">
+                        <Label text="Email Address" styleClass="field-label"/>
+                        <TextField fx:id="regEmailField" promptText="alice@latticechat.internal" styleClass="input-field"/>
+                    </VBox>
+
+                    <VBox spacing="4">
+                        <Label text="Full Name" styleClass="field-label"/>
+                        <TextField fx:id="regFullNameField" promptText="Alice Quantum" styleClass="input-field"/>
+                    </VBox>
+
+                    <VBox spacing="4">
+                        <Label text="Master Password (protects local keystore)" styleClass="field-label"/>
+                        <PasswordField fx:id="regPasswordField" promptText="Choose a strong password" styleClass="input-field"/>
+                    </VBox>
+
+                    <Button fx:id="btnRegister" text="Generate PQC Keys &amp; Register" onAction="#handleRegister"
+                            maxWidth="Infinity" styleClass="secondary-button"/>
+
+                    <Label fx:id="regStatusLabel" wrapText="true" styleClass="status-label"/>
+                </VBox>
+            </Tab>
+        </TabPane>
+    </VBox>
+</StackPane>

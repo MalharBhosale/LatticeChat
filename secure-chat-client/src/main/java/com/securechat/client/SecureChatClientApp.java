@@ -21,12 +21,13 @@ public class SecureChatClientApp extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/splash.fxml"));
-        Scene scene = new Scene(loader.load(), 800, 600);
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/login.fxml"));
+        Scene scene = new Scene(loader.load(), 850, 620);
+        scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
 
-        primaryStage.setTitle("SecureChat — Post-Quantum Secure Messaging");
-        primaryStage.setMinWidth(700);
-        primaryStage.setMinHeight(500);
+        primaryStage.setTitle("LatticeChat — Post-Quantum Secure Messaging");
+        primaryStage.setMinWidth(750);
+        primaryStage.setMinHeight(550);
         primaryStage.setScene(scene);
         primaryStage.show();
     }

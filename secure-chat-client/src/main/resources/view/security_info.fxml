@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.securechat.client.controller.SecurityInfoController"
+      spacing="14" styleClass="security-dialog-root">
+    <padding>
+        <Insets top="24" right="24" bottom="24" left="24"/>
+    </padding>
+
+    <VBox spacing="4">
+        <Label text="🛡️ Post-Quantum Security Verification" styleClass="dialog-title"/>
+        <Label fx:id="peerNameLabel" text="@peer" styleClass="dialog-subtitle"/>
+    </VBox>
+
+    <Separator/>
+
+    <!-- Safety Number -->
+    <VBox alignment="CENTER" spacing="6" styleClass="safety-card">
+        <padding>
+            <Insets top="12" right="16" bottom="12" left="16"/>
+        </padding>
+        <Label text="VERIFICATION SAFETY NUMBER" styleClass="card-subtitle"/>
+        <Label fx:id="safetyNumberLabel" text="000000 000000" styleClass="safety-number"/>
+        <Label text="Compare this number out-of-band with your contact to verify end-to-end security." styleClass="card-hint"/>
+    </VBox>
+
+    <!-- Fingerprints -->
+    <VBox spacing="10">
+        <VBox spacing="3">
+            <Label text="Peer ML-DSA-65 Identity Key Fingerprint" styleClass="field-label"/>
+            <Label fx:id="peerFingerprintLabel" text="Loading..." wrapText="true" styleClass="fingerprint-label"/>
+        </VBox>
+
+        <VBox spacing="3">
+            <Label text="Your ML-DSA-65 Identity Key Fingerprint" styleClass="field-label"/>
+            <Label fx:id="localFingerprintLabel" text="Loading..." wrapText="true" styleClass="fingerprint-label"/>
+        </VBox>
+    </VBox>
+
+    <!-- Algorithms in use -->
+    <VBox spacing="4" styleClass="algo-box">
+        <padding>
+            <Insets top="8" right="10" bottom="8" left="10"/>
+        </padding>
+        <Label text="CRYPTOGRAPHIC PRIMITIVES APPLIED" styleClass="card-subtitle"/>
+        <Label fx:id="algorithmsLabel" wrapText="true" styleClass="algo-text"/>
+    </VBox>
+
+    <HBox alignment="CENTER_RIGHT">
+        <Button text="Done" onAction="#handleClose" styleClass="primary-button" minWidth="90"/>
+    </HBox>
+</VBox>
