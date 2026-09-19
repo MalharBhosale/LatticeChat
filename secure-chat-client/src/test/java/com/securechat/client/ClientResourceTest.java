@@ -1,4 +1,3 @@
-
 package com.securechat.client;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
