@@ -12,7 +12,7 @@ VALUES
     (1, 'alice', 'alice@securechat.internal', '$2a$12$6mCtMXKVYCiXMsqePMfreOo.tp.RfbFleKEkhNfUnbR4PCqVWqwKq', 'Alice Quantum', 'ACTIVE'),
     (2, 'bob', 'bob@securechat.internal', '$2a$12$6mCtMXKVYCiXMsqePMfreOo.tp.RfbFleKEkhNfUnbR4PCqVWqwKq', 'Bob Lattice', 'ACTIVE'),
     (3, 'charlie', 'charlie@securechat.internal', '$2a$12$6mCtMXKVYCiXMsqePMfreOo.tp.RfbFleKEkhNfUnbR4PCqVWqwKq', 'Charlie Observer', 'ACTIVE')
-ON DUPLICATE KEY UPDATE `display_name` = VALUES(`display_name`);
+ON DUPLICATE KEY UPDATE `display_name` = VALUES(`display_name`), `password_hash` = VALUES(`password_hash`);
 
 -- Insert Seed Key Bundles (Dummy Base64 PQC Public Keys for Seed Demo)
 INSERT INTO `user_key_bundles` (`id`, `user_id`, `identity_key`, `identity_algorithm`, `prekey`, `prekey_algorithm`, `prekey_signature`, `key_version`, `is_active`)
