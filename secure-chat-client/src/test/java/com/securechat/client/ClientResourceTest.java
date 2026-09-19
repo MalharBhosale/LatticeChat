@@ -1,3 +1,4 @@
+
 package com.securechat.client;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -23,12 +24,12 @@ class ClientResourceTest {
     }
 
     @Test
-    @DisplayName("Verify Bouncy Castle Security Provider Registration")
+    @DisplayName("Verify Bouncy Castle Post-Quantum Provider Registration")
     void testSecurityProviders() {
-        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-            Security.addProvider(new BouncyCastleProvider());
-        }
+        Security.addProvider(new BouncyCastleProvider());
+        Security.addProvider(new BouncyCastlePQCProvider());
 
         assertNotNull(Security.getProvider("BC"), "Bouncy Castle provider should be registered");
+        assertNotNull(Security.getProvider("BCPQC"), "Bouncy Castle PQC provider should be registered");
     }
 }
