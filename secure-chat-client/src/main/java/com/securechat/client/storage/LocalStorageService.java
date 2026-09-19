@@ -64,9 +64,16 @@ public class LocalStorageService implements AutoCloseable {
                     peer_username TEXT PRIMARY KEY,
                     session_key_b64 TEXT NOT NULL,
                     peer_identity_key_b64 TEXT,
+                    peer_key_version INTEGER DEFAULT 1,
                     established_at TEXT NOT NULL
                 );
             """);
+
+            try {
+                stmt.execute("ALTER TABLE peer_sessions ADD COLUMN peer_key_version INTEGER DEFAULT 1;");
+            } catch (SQLException ignored) {
+                // Column already exists
+            }
 
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_msg_peer ON local_messages(peer_username);");
         }
@@ -132,17 +139,22 @@ public class LocalStorageService implements AutoCloseable {
     }
 
     public synchronized void saveSession(String peerUsername, String sessionKeyB64, String peerIdentityKeyB64) throws SQLException {
+        saveSession(peerUsername, sessionKeyB64, peerIdentityKeyB64, 1);
+    }
+
+    public synchronized void saveSession(String peerUsername, String sessionKeyB64, String peerIdentityKeyB64, int peerKeyVersion) throws SQLException {
         String sql = """
             INSERT OR REPLACE INTO peer_sessions 
-            (peer_username, session_key_b64, peer_identity_key_b64, established_at)
-            VALUES (?, ?, ?, ?);
+            (peer_username, session_key_b64, peer_identity_key_b64, peer_key_version, established_at)
+            VALUES (?, ?, ?, ?, ?);
         """;
 
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, peerUsername);
             ps.setString(2, sessionKeyB64);
             ps.setString(3, peerIdentityKeyB64);
-            ps.setString(4, Instant.now().toString());
+            ps.setInt(4, peerKeyVersion);
+            ps.setString(5, Instant.now().toString());
             ps.executeUpdate();
         }
     }
@@ -158,6 +170,34 @@ public class LocalStorageService implements AutoCloseable {
             }
         }
         return Optional.empty();
+    }
+
+    public synchronized Optional<Integer> getPeerKeyVersion(String peerUsername) throws SQLException {
+        String sql = "SELECT peer_key_version FROM peer_sessions WHERE peer_username = ?;";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, peerUsername);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    int ver = rs.getInt("peer_key_version");
+                    return Optional.of(ver > 0 ? ver : 1);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    public synchronized void invalidateSession(String peerUsername) throws SQLException {
+        String sql = "DELETE FROM peer_sessions WHERE peer_username = ?;";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, peerUsername);
+            ps.executeUpdate();
+        }
+    }
+
+    public synchronized void clearAllSessions() throws SQLException {
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute("DELETE FROM peer_sessions;");
+        }
     }
 
     public synchronized Optional<String> getPeerIdentityKey(String peerUsername) throws SQLException {

@@ -85,6 +85,29 @@ public class KeyController {
     }
 
     /**
+     * Explicitly revokes / invalidates the authenticated user's active key bundle.
+     */
+    @PostMapping("/revoke")
+    public ResponseEntity<ApiResponse<Void>> revokeKeyBundle(
+            @RequestBody(required = false) com.securechat.common.dto.RevokeKeyBundleRequest request,
+            Authentication authentication) {
+        String username = authentication.getName();
+        keyManagementService.revokeActiveKeyBundle(username, request);
+        return ResponseEntity.ok(ApiResponse.ok("Post-Quantum key bundle revoked successfully", null));
+    }
+
+    /**
+     * Retrieves the cryptographic audit trail for the authenticated user.
+     */
+    @GetMapping("/audit-trail")
+    public ResponseEntity<ApiResponse<java.util.List<com.securechat.common.dto.AuditLogDto>>> getAuditTrail(
+            Authentication authentication) {
+        String username = authentication.getName();
+        java.util.List<com.securechat.common.dto.AuditLogDto> trail = keyManagementService.getUserAuditTrail(username);
+        return ResponseEntity.ok(ApiResponse.ok("Cryptographic audit trail retrieved successfully", trail));
+    }
+
+    /**
      * Replenishes one-time prekeys (ML-KEM-768) for the authenticated user.
      */
     @PostMapping("/prekeys")

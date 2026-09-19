@@ -115,6 +115,23 @@ public class ApiClient {
         return res.data();
     }
 
+    public void revokeKeyBundle(com.securechat.common.dto.RevokeKeyBundleRequest request) throws Exception {
+        ApiResponse<Void> res = post("/keys/revoke", request != null ? request : new com.securechat.common.dto.RevokeKeyBundleRequest("USER_REQUESTED"),
+                new TypeReference<ApiResponse<Void>>() {});
+        if (!res.success()) {
+            throw new RuntimeException(res.message());
+        }
+    }
+
+    public List<com.securechat.common.dto.AuditLogDto> getAuditTrail() throws Exception {
+        ApiResponse<List<com.securechat.common.dto.AuditLogDto>> res = get("/keys/audit-trail",
+                new TypeReference<ApiResponse<List<com.securechat.common.dto.AuditLogDto>>>() {});
+        if (!res.success()) {
+            throw new RuntimeException(res.message());
+        }
+        return res.data() != null ? res.data() : List.of();
+    }
+
     // --- Attachments & File Transfer ---
 
     public UploadAttachmentResponse uploadAttachment(String recipientUsername,

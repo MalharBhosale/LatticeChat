@@ -2,20 +2,40 @@ package com.securechat.client.controller;
 
 import com.securechat.client.context.ClientContext;
 import com.securechat.client.protocol.PqSessionManager;
+import com.securechat.common.dto.AuditLogDto;
+import com.securechat.common.dto.KeyExchangeBundleDto;
+import com.securechat.common.dto.RevokeKeyBundleRequest;
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Controller for the Cryptographic Verification & Safety Number Dialog.
- * Enables out-of-band visual verification of post-quantum key fingerprints.
+ * Controller for the Cryptographic Verification, Key Lifecycle, and Safety Number Dialog.
+ * Enables:
+ * 1. Out-of-band visual verification of post-quantum key fingerprints & 12-digit safety numbers.
+ * 2. On-demand signed prekey rotation (v1 -> v2...).
+ * 3. Ephemeral PQ-X3DH session re-negotiation.
+ * 4. Explicit key bundle revocation & invalidation.
+ * 5. Real-time cryptographic audit trail inspection.
  */
 public class SecurityInfoController {
+
+    private static final DateTimeFormatter TIME_FMT =
+            DateTimeFormatter.ofPattern("HH:mm:ss dd-MMM").withZone(ZoneId.systemDefault());
 
     @FXML
     private Label peerNameLabel;
@@ -39,7 +59,16 @@ public class SecurityInfoController {
     private Label rotationStatusLabel;
 
     @FXML
-    private javafx.scene.control.Button btnRotatePrekey;
+    private Button btnRotatePrekey;
+
+    @FXML
+    private Button btnRenegotiateSession;
+
+    @FXML
+    private Button btnRevokeKey;
+
+    @FXML
+    private VBox auditLogsContainer;
 
     private String currentPeer;
 
@@ -75,9 +104,16 @@ public class SecurityInfoController {
                 "• Key Derivation: RFC 5869 HKDF-SHA256"
         );
 
+        int localVer = 1;
+        try {
+            localVer = ctx.getSessionManager().getPeerKeyVersion(peerUsername);
+        } catch (Exception ignored) {}
+
         if (keyVersionLabel != null) {
-            keyVersionLabel.setText("Active Key Version: v1 (Initial Bundle)");
+            keyVersionLabel.setText("Peer Session Bundle: v" + localVer);
         }
+
+        loadAuditTrail();
     }
 
     @FXML
@@ -88,7 +124,7 @@ public class SecurityInfoController {
             rotationStatusLabel.setStyle("-fx-text-fill: #38bdf8;");
         }
 
-        java.util.concurrent.CompletableFuture.runAsync(() -> {
+        CompletableFuture.runAsync(() -> {
             try {
                 ClientContext ctx = ClientContext.getInstance();
                 var keystore = ctx.getKeystore();
@@ -104,7 +140,7 @@ public class SecurityInfoController {
 
                 var response = ctx.getApiClient().rotateKeyBundle(req);
 
-                javafx.application.Platform.runLater(() -> {
+                Platform.runLater(() -> {
                     btnRotatePrekey.setDisable(false);
                     if (keyVersionLabel != null) {
                         keyVersionLabel.setText("Active Key Version: v" + response.keyVersion() + " (Rotated)");
@@ -113,14 +149,148 @@ public class SecurityInfoController {
                         rotationStatusLabel.setText("✓ Prekey rotated to v" + response.keyVersion() + "! Server audit logged.");
                         rotationStatusLabel.setStyle("-fx-text-fill: #10b981; -fx-font-weight: bold;");
                     }
+                    loadAuditTrail();
                 });
             } catch (Exception e) {
-                javafx.application.Platform.runLater(() -> {
+                Platform.runLater(() -> {
                     btnRotatePrekey.setDisable(false);
                     if (rotationStatusLabel != null) {
                         rotationStatusLabel.setText("Rotation failed: " + e.getMessage());
                         rotationStatusLabel.setStyle("-fx-text-fill: #ef4444;");
                     }
+                });
+            }
+        });
+    }
+
+    @FXML
+    private void handleRenegotiateSession(ActionEvent event) {
+        if (currentPeer == null || currentPeer.isBlank()) return;
+
+        btnRenegotiateSession.setDisable(true);
+        if (rotationStatusLabel != null) {
+            rotationStatusLabel.setText("Re-negotiating PQ-X3DH session with @" + currentPeer + "...");
+            rotationStatusLabel.setStyle("-fx-text-fill: #38bdf8;");
+        }
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                ClientContext ctx = ClientContext.getInstance();
+                KeyExchangeBundleDto newBundle = ctx.getApiClient().getKeyBundle(currentPeer);
+                ctx.getSessionManager().renegotiateSession(currentPeer, newBundle);
+
+                Platform.runLater(() -> {
+                    btnRenegotiateSession.setDisable(false);
+                    if (keyVersionLabel != null) {
+                        keyVersionLabel.setText("Peer Session Bundle: v" + newBundle.keyVersion() + " (Re-negotiated)");
+                    }
+                    if (rotationStatusLabel != null) {
+                        rotationStatusLabel.setText("✓ Session re-negotiated with @" + currentPeer + " (v" + newBundle.keyVersion() + ")!");
+                        rotationStatusLabel.setStyle("-fx-text-fill: #10b981; -fx-font-weight: bold;");
+                    }
+                    loadAuditTrail();
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    btnRenegotiateSession.setDisable(false);
+                    if (rotationStatusLabel != null) {
+                        rotationStatusLabel.setText("Re-negotiation failed: " + e.getMessage());
+                        rotationStatusLabel.setStyle("-fx-text-fill: #ef4444;");
+                    }
+                });
+            }
+        });
+    }
+
+    @FXML
+    private void handleRevokeKey(ActionEvent event) {
+        btnRevokeKey.setDisable(true);
+        if (rotationStatusLabel != null) {
+            rotationStatusLabel.setText("Revoking active key bundle on server...");
+            rotationStatusLabel.setStyle("-fx-text-fill: #f59e0b;");
+        }
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                ClientContext ctx = ClientContext.getInstance();
+                ctx.getApiClient().revokeKeyBundle(new RevokeKeyBundleRequest("USER_INITIATED_REVOCATION", "Revoked via Security Dashboard"));
+                ctx.getSessionManager().clearAllSessions();
+
+                Platform.runLater(() -> {
+                    btnRevokeKey.setDisable(false);
+                    if (keyVersionLabel != null) {
+                        keyVersionLabel.setText("Active Key Version: REVOKED");
+                    }
+                    if (rotationStatusLabel != null) {
+                        rotationStatusLabel.setText("⚠️ Key bundle revoked! All active peer sessions cleared.");
+                        rotationStatusLabel.setStyle("-fx-text-fill: #ef4444; -fx-font-weight: bold;");
+                    }
+                    loadAuditTrail();
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    btnRevokeKey.setDisable(false);
+                    if (rotationStatusLabel != null) {
+                        rotationStatusLabel.setText("Revocation failed: " + e.getMessage());
+                        rotationStatusLabel.setStyle("-fx-text-fill: #ef4444;");
+                    }
+                });
+            }
+        });
+    }
+
+    @FXML
+    private void handleRefreshAuditTrail(ActionEvent event) {
+        loadAuditTrail();
+    }
+
+    private void loadAuditTrail() {
+        if (auditLogsContainer == null) return;
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                ClientContext ctx = ClientContext.getInstance();
+                List<AuditLogDto> trail = ctx.getApiClient().getAuditTrail();
+
+                Platform.runLater(() -> {
+                    auditLogsContainer.getChildren().clear();
+                    if (trail.isEmpty()) {
+                        Label emptyLbl = new Label("No audit events recorded yet.");
+                        emptyLbl.getStyleClass().add("card-hint");
+                        auditLogsContainer.getChildren().add(emptyLbl);
+                        return;
+                    }
+
+                    for (AuditLogDto entry : trail.stream().limit(6).toList()) {
+                        VBox entryBox = new VBox(2);
+                        entryBox.getStyleClass().add("audit-entry");
+
+                        HBox header = new HBox(8);
+                        header.setAlignment(Pos.CENTER_LEFT);
+
+                        Label badge = new Label(entry.eventType());
+                        badge.getStyleClass().add("audit-badge");
+
+                        String timeStr = entry.createdAt() != null ? TIME_FMT.format(entry.createdAt()) : "Just now";
+                        Label timeLbl = new Label(timeStr);
+                        timeLbl.getStyleClass().add("card-hint");
+
+                        header.getChildren().addAll(badge, timeLbl);
+
+                        Label detailLbl = new Label(entry.details());
+                        detailLbl.setStyle("-fx-font-size: 11px; -fx-text-fill: #cbd5e1;");
+                        detailLbl.setWrapText(true);
+
+                        entryBox.getChildren().addAll(header, detailLbl);
+                        auditLogsContainer.getChildren().add(entryBox);
+                    }
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    auditLogsContainer.getChildren().clear();
+                    Label errLbl = new Label("Could not fetch audit trail: " + e.getMessage());
+                    errLbl.setStyle("-fx-text-fill: #ef4444; -fx-font-size: 11px;");
+                    auditLogsContainer.getChildren().add(errLbl);
                 });
             }
         });
@@ -132,7 +302,6 @@ public class SecurityInfoController {
             MessageDigest sha = MessageDigest.getInstance("SHA-256");
             byte[] hash = sha.digest(combined.getBytes(StandardCharsets.UTF_8));
 
-            // Format first 6 bytes as two 6-digit blocks
             long num1 = ((hash[0] & 0xFFL) << 16) | ((hash[1] & 0xFFL) << 8) | (hash[2] & 0xFFL);
             long num2 = ((hash[3] & 0xFFL) << 16) | ((hash[4] & 0xFFL) << 8) | (hash[5] & 0xFFL);
 
@@ -148,4 +317,3 @@ public class SecurityInfoController {
         stage.close();
     }
 }
-

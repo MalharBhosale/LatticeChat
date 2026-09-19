@@ -473,3 +473,36 @@
     -fx-padding: 8;
 }
 
+.danger-button {
+    -fx-background-color: linear-gradient(to right, #dc2626, #b91c1c);
+    -fx-text-fill: #ffffff;
+    -fx-font-weight: bold;
+    -fx-font-size: 12.5px;
+    -fx-padding: 8 12;
+    -fx-background-radius: 8px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(220, 38, 38, 0.35), 6, 0.2, 0, 1);
+}
+
+.danger-button:hover {
+    -fx-background-color: linear-gradient(to right, #ef4444, #dc2626);
+}
+
+.audit-entry {
+    -fx-background-color: rgba(15, 23, 42, 0.85);
+    -fx-background-radius: 6px;
+    -fx-padding: 6 10;
+    -fx-border-color: #334155;
+    -fx-border-radius: 6px;
+    -fx-border-width: 1px;
+}
+
+.audit-badge {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #38bdf8;
+    -fx-background-color: rgba(56, 189, 248, 0.15);
+    -fx-padding: 2 6;
+    -fx-background-radius: 4px;
+}
+

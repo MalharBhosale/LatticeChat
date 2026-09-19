@@ -112,10 +112,44 @@ public class PqSessionManager {
         // 4. Derive symmetric 256-bit session key
         byte[] sessionKey = hkdfService.deriveKey(ikm, PROTOCOL_SALT, INFO_SESSION_KEY, 32);
 
-        // 5. Store session key in SQLite
-        storage.saveSession(peerUsername, Base64.getEncoder().encodeToString(sessionKey), bundle.identityKey());
+        // 5. Store session key in SQLite with bundle key version
+        int keyVersion = bundle.keyVersion() > 0 ? bundle.keyVersion() : 1;
+        storage.saveSession(peerUsername, Base64.getEncoder().encodeToString(sessionKey), bundle.identityKey(), keyVersion);
 
         return encapsulationHeader;
+    }
+
+    /**
+     * Re-negotiates an active PQ-X3DH session with a peer using an updated public key bundle (e.g. after peer key rotation).
+     * Replaces the local session key with the newly derived secret bound to the new key version.
+     */
+    public String renegotiateSession(String peerUsername, KeyExchangeBundleDto newBundle) throws Exception {
+        log.info("Re-negotiating PQ-X3DH session with peer '{}' for key version v{}", peerUsername, newBundle.keyVersion());
+        storage.invalidateSession(peerUsername);
+        return initiateSession(peerUsername, newBundle);
+    }
+
+    /**
+     * Invalidates the local session key for the specified peer, forcing a fresh key exchange handshake.
+     */
+    public void invalidateSession(String peerUsername) throws SQLException {
+        log.info("Invalidating local session for peer '{}'", peerUsername);
+        storage.invalidateSession(peerUsername);
+    }
+
+    /**
+     * Clears all local sessions, e.g. when local keys are revoked or rotated.
+     */
+    public void clearAllSessions() throws SQLException {
+        log.info("Clearing all established peer sessions");
+        storage.clearAllSessions();
+    }
+
+    /**
+     * Checks the recorded key version for an established peer session.
+     */
+    public int getPeerKeyVersion(String peerUsername) throws SQLException {
+        return storage.getPeerKeyVersion(peerUsername).orElse(1);
     }
 
     /**
@@ -175,9 +209,10 @@ public class PqSessionManager {
     public LocalMessage processIncomingMessage(EncryptedMessageDto incoming, String senderIdentityKeyB64) throws Exception {
         String sender = incoming.senderUsername();
 
-        // 1. Establish session if not yet present
-        if (!storage.hasSession(sender)) {
-            if (incoming.encapsulationCiphertextBase64() == null || incoming.encapsulationCiphertextBase64().isBlank()) {
+        // 1. Establish or update session if not yet present or if re-negotiation encapsulation is provided
+        boolean hasEncapsulation = incoming.encapsulationCiphertextBase64() != null && !incoming.encapsulationCiphertextBase64().isBlank();
+        if (!storage.hasSession(sender) || hasEncapsulation) {
+            if (!hasEncapsulation) {
                 throw new IllegalStateException("No active session for peer '" + sender + "' and no KEM encapsulation provided");
             }
             receiveSession(sender, senderIdentityKeyB64, incoming.encapsulationCiphertextBase64());

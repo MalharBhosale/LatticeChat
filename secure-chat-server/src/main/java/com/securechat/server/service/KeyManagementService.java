@@ -196,6 +196,60 @@ public class KeyManagementService {
         return savedBundle;
     }
 
+    /**
+     * Explicitly revokes and deactivates the user's active Post-Quantum Key Bundle,
+     * invalidates all unconsumed one-time prekeys, and writes a KEY_REVOCATION audit event.
+     */
+    @Transactional
+    public void revokeActiveKeyBundle(String username, com.securechat.common.dto.RevokeKeyBundleRequest request) {
+        UserEntity user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User '" + username + "' not found"));
+
+        UserKeyBundleEntity currentBundle = userKeyBundleRepository.findByUserIdAndIsActiveTrue(user.getId())
+                .orElseThrow(() -> new IllegalStateException("Cannot revoke keys: no active key bundle found for user: " + username));
+
+        int revokedVersion = currentBundle.getKeyVersion();
+
+        // 1. Deactivate active bundle
+        userKeyBundleRepository.deactivateAllByUserId(user.getId());
+
+        // 2. Consume and invalidate remaining one-time prekeys
+        List<OneTimePrekeyEntity> unconsumedOpks = oneTimePrekeyRepository.findByUserIdAndIsConsumedFalse(user.getId());
+        for (OneTimePrekeyEntity opk : unconsumedOpks) {
+            opk.markConsumed();
+        }
+        oneTimePrekeyRepository.saveAll(unconsumedOpks);
+
+        // 3. Security audit trail
+        String reason = (request != null && request.reason() != null) ? request.reason() : "USER_REQUESTED";
+        String notes = (request != null && request.notes() != null) ? " (" + request.notes() + ")" : "";
+        recordAuditLog(user, AuditEventType.KEY_REVOCATION,
+                "Revoked active PQC key bundle version " + revokedVersion + ". Reason: " + reason + notes);
+
+        log.warn("Revoked active PQC key bundle v{} and invalidated {} OPKs for user '{}'. Reason: {}",
+                revokedVersion, unconsumedOpks.size(), username, reason);
+    }
+
+    /**
+     * Retrieves the complete cryptographic audit trail for the specified user.
+     */
+    @Transactional(readOnly = true)
+    public List<com.securechat.common.dto.AuditLogDto> getUserAuditTrail(String username) {
+        UserEntity user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User '" + username + "' not found"));
+
+        return auditLogRepository.findByUserIdOrderByCreatedAtDesc(user.getId()).stream()
+                .map(log -> new com.securechat.common.dto.AuditLogDto(
+                        log.getId(),
+                        user.getUsername(),
+                        log.getEventType().name(),
+                        log.getIpAddress(),
+                        log.getDetails(),
+                        log.getCreatedAt()
+                ))
+                .toList();
+    }
+
 
     /**
      * Replenishes a user's pool of unconsumed one-time prekeys (ML-KEM-768).
