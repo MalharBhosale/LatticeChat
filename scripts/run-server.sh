@@ -28,6 +28,14 @@ if [ "$JAVA_VERSION" -lt 21 ]; then
     echo -e "${YELLOW}[WARNING] Java 21 LTS or higher is recommended. Detected: ${JAVA_VERSION}${NC}"
 fi
 
+# Check for H2 in-memory profile flag
+PROFILE_OPT=""
+if [ "$1" == "--h2" ] || [ "$1" == "h2" ]; then
+    PROFILE_OPT="-Dspring-boot.run.profiles=h2"
+    shift
+    echo -e "${GREEN}[INFO] Enabled in-memory H2 database profile. Zero external database required!${NC}"
+fi
+
 # Locate executable JAR
 JAR_PATH="secure-chat-server/target/lattice-chat-server.jar"
 if [ ! -f "$JAR_PATH" ]; then
@@ -39,5 +47,5 @@ if [ -f "$JAR_PATH" ]; then
     exec java -jar "$JAR_PATH" "$@"
 else
     echo -e "${YELLOW}[INFO] Standalone JAR not found. Launching via Maven spring-boot:run...${NC}"
-    exec mvn spring-boot:run -pl secure-chat-server "$@"
+    exec mvn spring-boot:run -pl secure-chat-server $PROFILE_OPT "$@"
 fi

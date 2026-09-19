@@ -29,6 +29,18 @@ if %JAVA_VER% LSS 21 (
     echo [WARNING] Java 21 or higher is strongly recommended. Current version: %JAVA_VER%
 )
 
+:: Check for H2 in-memory profile flag
+set "PROFILE_OPT="
+if "%~1"=="--h2" (
+    set "PROFILE_OPT=-Dspring-boot.run.profiles=h2"
+    shift
+    echo [INFO] Enabled in-memory H2 database profile. Zero external database required!
+) else if "%~1"=="h2" (
+    set "PROFILE_OPT=-Dspring-boot.run.profiles=h2"
+    shift
+    echo [INFO] Enabled in-memory H2 database profile. Zero external database required!
+)
+
 :: Locate executable JAR
 set "JAR_PATH=secure-chat-server\target\lattice-chat-server.jar"
 if not exist "%JAR_PATH%" (
@@ -40,7 +52,7 @@ if exist "%JAR_PATH%" (
     java -jar "%JAR_PATH%" %*
 ) else (
     echo [INFO] Server JAR not found. Launching via Maven spring-boot:run...
-    mvn spring-boot:run -pl secure-chat-server %*
+    mvn spring-boot:run -pl secure-chat-server !PROFILE_OPT! %*
 )
 
 if %ERRORLEVEL% NEQ 0 (
