@@ -39,7 +39,7 @@ public class MessageController {
      */
     @PostMapping
     public ResponseEntity<ApiResponse<EncryptedMessageDto>> sendMessage(
-            @RequestBody SendMessageRequest request,
+            @jakarta.validation.Valid @RequestBody SendMessageRequest request,
             Authentication authentication) {
         String senderUsername = authentication.getName();
         EncryptedMessageDto message = messageService.sendMessage(senderUsername, request);
@@ -75,7 +75,7 @@ public class MessageController {
     @PutMapping("/{messageId}/status")
     public ResponseEntity<ApiResponse<EncryptedMessageDto>> updateMessageStatus(
             @PathVariable("messageId") String messageId,
-            @RequestBody DeliveryReceiptRequest request,
+            @jakarta.validation.Valid @RequestBody DeliveryReceiptRequest request,
             Authentication authentication) {
         String recipientUsername = authentication.getName();
         MessageStatus status = MessageStatus.valueOf(request.status().toUpperCase());

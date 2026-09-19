@@ -28,7 +28,7 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
-            @RequestBody RegisterRequest request,
+            @jakarta.validation.Valid @RequestBody RegisterRequest request,
             HttpServletRequest servletRequest) {
 
         String clientIp = extractClientIp(servletRequest);
@@ -39,7 +39,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(
-            @RequestBody AuthRequest request,
+            @jakarta.validation.Valid @RequestBody AuthRequest request,
             HttpServletRequest servletRequest) {
 
         String clientIp = extractClientIp(servletRequest);

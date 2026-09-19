@@ -15,7 +15,7 @@ spring:
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:securechat_db}?createDatabaseIfNotExist=false&useSSL=${DB_USE_SSL:true}&allowPublicKeyRetrieval=${DB_ALLOW_PUBLIC_KEY:false}&serverTimezone=UTC&characterEncoding=UTF-8
     username: ${DB_USER:securechat_app}
-    password: ${DB_PASSWORD:StrongProductionPassword2026!}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       pool-name: LatticeChatHikariPool
@@ -29,7 +29,7 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
-    show-sql: false
+      show-sql: false
     properties:
       hibernate:
         format_sql: false
@@ -45,7 +45,7 @@ spring:
 app:
   jwt:
     # Production secret must be at least 256-bit cryptographically random key provided via environment variable
-    secret: ${JWT_SECRET:c87b92df44e240a5b4819d9b6e828472f85419da3729e8832a8df8d045d4817a2}
+    secret: ${JWT_SECRET}
     expiration-ms: 86400000 # 24 hours
   crypto:
     kem-algorithm: ML-KEM-768

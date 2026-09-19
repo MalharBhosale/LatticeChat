@@ -13,11 +13,13 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
  * Centralized exception handler mapping domain and framework exceptions to
  * consistent, structured {@link ApiResponse} objects.
+ * Hardened to prevent internal information leakage (OWASP A05: Security Misconfiguration).
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -35,7 +37,6 @@ public class GlobalExceptionHandler {
         log.warn("Authorization rejected: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(ex.getMessage()));
     }
-
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException ex) {
@@ -66,13 +67,15 @@ public class GlobalExceptionHandler {
         String errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(err -> err.getField() + ": " + err.getDefaultMessage())
                 .collect(Collectors.joining(", "));
+        log.warn("Validation failed for incoming request: {}", errors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error("Validation failed: " + errors));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
-        log.error("Unhandled internal server error: ", ex);
+        String errorRef = UUID.randomUUID().toString().substring(0, 8);
+        log.error("Unhandled internal server error [ref: {}]: ", errorRef, ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("Internal server error: " + ex.getMessage()));
+                .body(ApiResponse.error("An unexpected internal error occurred. Error reference: " + errorRef));
     }
 }

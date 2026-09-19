@@ -1,5 +1,6 @@
 package com.securechat.common.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import java.util.List;
 
 /**
@@ -7,8 +8,13 @@ import java.util.List;
  * The new prekey must be authentic and signed by the user's permanent ML-DSA-65 identity key.
  */
 public record RotateKeyBundleRequest(
+        @NotBlank(message = "New prekey cannot be blank")
         String newPrekey,
+
         String newPrekeyAlgorithm,
+
+        @NotBlank(message = "New prekey signature cannot be blank")
         String newPrekeySignature,
+
         List<OneTimePrekeyUploadDto> oneTimePrekeys
 ) {}

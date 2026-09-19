@@ -26,6 +26,12 @@
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
+        <!-- Jakarta Validation for DTO constraints -->
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+
         <!-- Bouncy Castle for Post-Quantum & Classical Cryptography -->
         <dependency>
             <groupId>org.bouncycastle</groupId>

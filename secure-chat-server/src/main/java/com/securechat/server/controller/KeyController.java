@@ -39,7 +39,7 @@ public class KeyController {
      */
     @PostMapping("/bundle")
     public ResponseEntity<ApiResponse<UserKeyBundleDto>> publishKeyBundle(
-            @RequestBody PublishKeyBundleRequest request,
+            @jakarta.validation.Valid @RequestBody PublishKeyBundleRequest request,
             Authentication authentication) {
         String username = authentication.getName();
         UserKeyBundleEntity bundle = keyManagementService.publishKeyBundle(username, request);
@@ -65,7 +65,7 @@ public class KeyController {
      */
     @PostMapping("/rotate")
     public ResponseEntity<ApiResponse<UserKeyBundleDto>> rotateSignedPrekey(
-            @RequestBody com.securechat.common.dto.RotateKeyBundleRequest request,
+            @jakarta.validation.Valid @RequestBody com.securechat.common.dto.RotateKeyBundleRequest request,
             Authentication authentication) {
         String username = authentication.getName();
         UserKeyBundleEntity bundle = keyManagementService.rotateSignedPrekey(username, request);
@@ -89,7 +89,7 @@ public class KeyController {
      */
     @PostMapping("/revoke")
     public ResponseEntity<ApiResponse<Void>> revokeKeyBundle(
-            @RequestBody(required = false) com.securechat.common.dto.RevokeKeyBundleRequest request,
+            @jakarta.validation.Valid @RequestBody(required = false) com.securechat.common.dto.RevokeKeyBundleRequest request,
             Authentication authentication) {
         String username = authentication.getName();
         keyManagementService.revokeActiveKeyBundle(username, request);
@@ -112,7 +112,7 @@ public class KeyController {
      */
     @PostMapping("/prekeys")
     public ResponseEntity<ApiResponse<Integer>> uploadPrekeys(
-            @RequestBody UploadPrekeysRequest request,
+            @jakarta.validation.Valid @RequestBody UploadPrekeysRequest request,
             Authentication authentication) {
         String username = authentication.getName();
         int count = keyManagementService.uploadOneTimePrekeys(username, request);

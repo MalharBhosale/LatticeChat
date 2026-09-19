@@ -129,19 +129,23 @@ public class ClientKeystore {
         random.nextBytes(salt);
 
         byte[] aesKey = deriveAesKey(password, salt);
-        KeystoreJsonData data = toData();
-        byte[] plaintext = MAPPER.writeValueAsBytes(data);
+        try {
+            KeystoreJsonData data = toData();
+            byte[] plaintext = MAPPER.writeValueAsBytes(data);
 
-        AesGcmEncryptionService encryptionService = new AesGcmEncryptionService();
-        byte[] encryptedPackage = encryptionService.encrypt(plaintext, aesKey, null);
+            AesGcmEncryptionService encryptionService = new AesGcmEncryptionService();
+            byte[] encryptedPackage = encryptionService.encrypt(plaintext, aesKey, null);
 
-        if (file.getParentFile() != null) {
-            file.getParentFile().mkdirs();
-        }
+            if (file.getParentFile() != null) {
+                file.getParentFile().mkdirs();
+            }
 
-        try (FileOutputStream fos = new FileOutputStream(file)) {
-            fos.write(salt);
-            fos.write(encryptedPackage);
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                fos.write(salt);
+                fos.write(encryptedPackage);
+            }
+        } finally {
+            Arrays.fill(aesKey, (byte) 0);
         }
     }
 
@@ -158,17 +162,25 @@ public class ClientKeystore {
         byte[] encryptedPackage = Arrays.copyOfRange(allBytes, SALT_LENGTH_BYTES, allBytes.length);
 
         byte[] aesKey = deriveAesKey(password, salt);
-        AesGcmEncryptionService encryptionService = new AesGcmEncryptionService();
-        byte[] plaintext = encryptionService.decrypt(encryptedPackage, aesKey, null);
+        try {
+            AesGcmEncryptionService encryptionService = new AesGcmEncryptionService();
+            byte[] plaintext = encryptionService.decrypt(encryptedPackage, aesKey, null);
 
-        KeystoreJsonData data = MAPPER.readValue(plaintext, KeystoreJsonData.class);
-        return fromData(data);
+            KeystoreJsonData data = MAPPER.readValue(plaintext, KeystoreJsonData.class);
+            return fromData(data);
+        } finally {
+            Arrays.fill(aesKey, (byte) 0);
+        }
     }
 
     private static byte[] deriveAesKey(char[] password, byte[] salt) throws Exception {
         PBEKeySpec spec = new PBEKeySpec(password, salt, PBKDF2_ITERATIONS, 256);
-        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-        return factory.generateSecret(spec).getEncoded();
+        try {
+            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+            return factory.generateSecret(spec).getEncoded();
+        } finally {
+            spec.clearPassword();
+        }
     }
 
     private KeystoreJsonData toData() {
