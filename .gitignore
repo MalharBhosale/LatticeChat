@@ -1,0 +1,25 @@
+# Maven build output
+target/
+*.jar
+*.war
+*.ear
+*.class
+
+# IDE and OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
+
+# Environment and Secrets
+.env
+*.key
+*.pem
+*.pfx
+*.keystore
+
+# Java crash logs
+hs_err_pid*
+replay_pid*

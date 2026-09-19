@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<StackPane xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.securechat.client.controller.SplashController"
+           stylesheets="@../css/style.css"
+           styleClass="splash-container">
+
+    <VBox alignment="CENTER" spacing="20" maxWidth="500" styleClass="card">
+        <padding>
+            <Insets top="30" right="30" bottom="30" left="30"/>
+        </padding>
+
+        <Label text="SecureChat" styleClass="title-label"/>
+        <Label text="Post-Quantum Cryptography Secure Messenger" styleClass="subtitle-label"/>
+
+        <HBox alignment="CENTER" spacing="10">
+            <Label text="ML-KEM-768" styleClass="badge-pqc"/>
+            <Label text="ML-DSA-65" styleClass="badge-pqc"/>
+            <Label text="AES-256-GCM" styleClass="badge-pqc"/>
+        </HBox>
+
+        <VBox spacing="10" alignment="CENTER_LEFT" style="-fx-background-color: #0d1117; -fx-padding: 15; -fx-background-radius: 8; -fx-border-color: #30363d; -fx-border-radius: 8;">
+            <Label fx:id="statusLabel" text="✓ System Initialized (Phase 1 Skeleton)" styleClass="status-indicator-secure"/>
+            <Label fx:id="cryptoStatusLabel" text="✓ Post-Quantum Providers: Bouncy Castle Active" style="-fx-text-fill: #8b949e; -fx-font-size: 12px;"/>
+            <Label fx:id="serverStatusLabel" text="ℹ Backend Target: http://localhost:8080" style="-fx-text-fill: #8b949e; -fx-font-size: 12px;"/>
+        </VBox>
+
+        <HBox alignment="CENTER" spacing="15">
+            <Button fx:id="btnCheckServer" text="Test Backend Connection" styleClass="btn-secondary" onAction="#handleCheckServer"/>
+            <Button fx:id="btnContinue" text="Get Started" styleClass="btn-primary" onAction="#handleContinue"/>
+        </HBox>
+    </VBox>
+</StackPane>
