@@ -188,5 +188,56 @@ $$\text{userID} == \text{uploaderID} \quad\lor\quad \text{userID} == \text{recip
 ### Q25: What is the primary takeaway from the LatticeChat implementation?
 **Answer**:
 - Post-quantum migration is practical today.
-- Real-world microbenchmarks prove that **ML-KEM-768** is **9.3x faster** than ECDH and **6.1x faster** than RSA-3072, while **ML-DSA-65** is **10.5x faster** at verification than ECDSA.
-- While lattice cryptography requires larger key and ciphertext sizes (~1 KB to ~3.3 KB), modern networks absorb these payloads with negligible latency overhead ($< 0.1\,\text{ms}$), delivering complete quantum resilience with superior computational efficiency.
+- Real-world microbenchmarks prove that **ML-KEM-768** is **11x faster** than ECDH and **>3,600x faster** than RSA-3072, while **ML-DSA-65** is **4.2x faster** at verification than ECDSA.
+- While lattice cryptography requires larger key and ciphertext sizes (~1 KB to ~3.3 KB), modern networks absorb these payloads with negligible latency overhead ($< 2\,\text{ms}$ on 4G/5G), delivering complete quantum resilience with superior computational efficiency.
+
+---
+
+## Part 5: Advanced Engineering & Defensive Architecture
+
+### Q26: How does LatticeChat mitigate timing side-channel attacks in lattice polynomial arithmetic?
+**Answer**:
+- Lattice cryptography executes polynomial additions, subtractions, and multiplications over the quotient ring $R_q = \mathbb{Z}_q[X]/(X^n + 1)$.
+- If polynomial coefficient multiplication branching depends on secret key values, cache misses or execution time variations leak secret key bits.
+- **Number Theoretic Transform (NTT)**: Bouncy Castle's NIST FIPS 203/204 implementation computes polynomial multiplications via constant-time NTT butterfly networks, executing in $\mathcal{O}(n \log n)$ time with zero data-dependent branches or table lookups.
+- **Constant-Time FO Implicit Rejection**: In ML-KEM decapsulation, invalid ciphertexts result in a constant-time PRF evaluation using a secret rejection key rather than an immediate branch-and-return error, completely denying timing oracles to an attacker.
+
+### Q27: Why did LatticeChat implement Pure PQC rather than a hybrid classical/post-quantum scheme?
+**Answer**:
+- **Dual-Algorithm Attack Surface**: Hybrid schemes (e.g. X25519 + ML-KEM-768) require maintaining two cryptographic implementations, doubling key material complexity, bandwidth consumption, and potential implementation vulnerabilities.
+- **FIPS Finalization**: NIST finalized FIPS 203 (ML-KEM) and FIPS 204 (ML-DSA) in August 2024, providing formal government and commercial standardization backed by decade-long peer review.
+- **Superior Execution Performance**: Pure ML-KEM-768 executes 11x faster than classical ECDH; combining them introduces classical bottleneck overheads without adding quantum security.
+- **Clean Architectural Boundaries**: LatticeChat’s modular interface design allows hybrid wrappers if mandated by specific regulatory compliance frameworks.
+
+### Q28: How does the server resolve concurrent race conditions when claiming One-Time Prekeys (OPKs)?
+**Answer**:
+- In high-throughput messaging, multiple senders might simultaneously attempt to initiate sessions with the same recipient, querying `getKeyExchangeBundle()`.
+- Standard database transactions without concurrency controls can suffer double-claiming race conditions, assigning the same OPK ID to two different sessions.
+- **Fine-Grained Per-Recipient Synchronization**: `KeyManagementService` implements concurrent locking via `ConcurrentHashMap<String, Object> recipientLocks`. Only one sender can claim from Bob's OPK pool at any given millisecond.
+- **Atomic State Flushing**: The claimed OPK entity is immediately marked `isConsumed = true` and committed via `oneTimePrekeyRepository.saveAndFlush(opk)`.
+- **Graceful Fallback**: If Bob's OPKs are exhausted, the server automatically returns a bundle containing only the active Signed Prekey (SPK), preserving session initiation without failure.
+
+### Q29: How does LatticeChat prevent Path Traversal and Insecure Direct Object References (IDOR) in file attachments?
+**Answer**:
+- **Synthetic UUID Storage**: Uploaded files are not stored under user-supplied names. The server generates a random UUID (`UUID.randomUUID().toString() + ".enc"`) for physical storage in an isolated vault directory.
+- **Path Sanitization**: `SafePathUtils.sanitizeFilename()` strips path traversal sequences (`../`, `..\`, null bytes) from metadata.
+- **Strict Participant Authorization Check**: In `AttachmentService.loadAttachment()` and `loadAttachmentStream()`, the authenticated username extracted from the cryptographic JWT token is verified against the database record:
+  ```java
+  if (!attachment.getUploader().getUsername().equals(requester) &&
+      !attachment.getRecipient().getUsername().equals(requester)) {
+      throw new AuthorizationException("Unauthorized to download this attachment");
+  }
+  ```
+  Any attempt by a third party (e.g. Eve) is rejected with `403 Forbidden` and logged in the security audit trail.
+
+### Q30: How does LatticeChat guarantee memory sanitization of ephemeral private keys and shared secrets?
+**Answer**:
+- Java uses an automatic garbage collector, meaning objects can persist in heap memory indefinitely until swept, exposing secrets to memory dump attacks.
+- **Primitive Byte Array Custody**: LatticeChat avoids storing sensitive keys in immutable `java.lang.String` objects (which cannot be scrubbed from memory).
+- **Explicit Zeroization**: Sensitive cryptographic byte arrays (`byte[]`) are explicitly scrubbed immediately after key derivation and encryption operations:
+  ```java
+  Arrays.fill(sharedSecretBytes, (byte) 0);
+  Arrays.fill(derivedKeyBytes, (byte) 0);
+  ```
+- This minimizes the window of exposure in volatile RAM and ensures residual key material cannot be harvested from core dumps.
+

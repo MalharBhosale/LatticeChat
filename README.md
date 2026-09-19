@@ -18,9 +18,15 @@ LatticeChat implements the newly standardized **NIST FIPS 203 (ML-KEM)** and **N
 
 | Document | Description |
 | :--- | :--- |
-| 📄 **[Academic Thesis Report](file:///docs/ACADEMIC_REPORT.md)** | Full 360° academic report: mathematical foundations of Module-LWE, IND-CCA2 security proofs, quantum threat model, and empirical benchmarks. |
-| 🎓 **[Viva Voce Defense Guide](file:///docs/VIVA_VOCE_GUIDE.md)** | Curated compilation of 25+ challenging defense questions & in-depth answers across theory, protocol, and implementation. |
-| 📖 **[User & Deployment Manual](file:///docs/USER_MANUAL.md)** | Step-by-step user guide, administrator manual, Docker orchestration, and troubleshooting FAQ. |
+| 🛡️ **[STRIDE Threat Model](file:///docs/THREAT_MODEL.md)** | Exhaustive threat model covering STRIDE matrix, DREAD risk ratings, trust boundaries, and residual risk. |
+| 📜 **[Protocol Specification](file:///docs/PROTOCOL_SPECIFICATION.md)** | Mathematical specification of PQ-X3DH, Post-Quantum Double Ratchet, wire formats, and safety numbers. |
+| 🗄️ **[Database Architecture](file:///docs/DATABASE_SCHEMA.md)** | Relational schema definition, Mermaid ER diagram, indexing strategy, and Zero-Knowledge storage guarantees. |
+| 🏗️ **[System Architecture](file:///docs/ARCHITECTURE.md)** | Multi-module engineering topography, sequence diagrams (handshake, relay, streaming, rotation), and topology. |
+| ⚡ **[Empirical Benchmarks](file:///docs/BENCHMARK_RESULTS.md)** | Hardware-measured comparative analysis (ML-KEM vs ECDH vs RSA, ML-DSA vs ECDSA), Gantt charts, and LaTeX tables. |
+| 📊 **[Presentation Slides Blueprint](file:///docs/PRESENTATION_SLIDES.md)** | Complete 20-slide thesis defense deck outline with visual layout blueprints and speaker scripts. |
+| 🎓 **[Viva Voce Defense Guide](file:///docs/VIVA_VOCE_GUIDE.md)** | Curated compilation of 30 challenging defense questions & in-depth answers across theory, protocol, and defense. |
+| 📄 **[Academic Thesis Report](file:///docs/ACADEMIC_REPORT.md)** | Full 360° academic thesis report: mathematical foundations of Module-LWE, IND-CCA2 security proofs, and HNDL analysis. |
+| 📖 **[User & Deployment Manual](file:///docs/USER_MANUAL.md)** | Step-by-step user guide, administrator handbook, Docker orchestration, and troubleshooting FAQ. |
 
 ---
 
@@ -67,15 +73,24 @@ Hardware-measured microbenchmarking across 1,000 warm iterations on Java 21 LTS:
 
 ```
 LatticeChat/
+├── .github/workflows/        # Automated CI/CD pipeline (JDK 21, test suites, smoke benchmarks)
 ├── database/                 # DDL schema (schema.sql with cascade FKs) and seed data (data.sql)
 ├── docker/                   # Multi-stage Dockerfile and Docker Compose orchestration
 │   ├── Dockerfile.server     # Eclipse Temurin 21 Alpine server container
 │   └── docker-compose.yml    # MySQL 8.0 + Spring Boot server orchestration
 ├── docs/                     # Comprehensive academic documentation & defense guides
+│   ├── THREAT_MODEL.md       # STRIDE threat model & DREAD risk assessment
+│   ├── PROTOCOL_SPECIFICATION.md # PQ-X3DH & Double Ratchet formal specification
+│   ├── DATABASE_SCHEMA.md    # Relational ER diagram & data dictionaries
+│   ├── ARCHITECTURE.md       # System topography & sequence diagrams
+│   ├── BENCHMARK_RESULTS.md  # Measured microbenchmarks & LaTeX comparative tables
+│   ├── PRESENTATION_SLIDES.md# 20-slide thesis defense deck outline & speaker notes
+│   ├── VIVA_VOCE_GUIDE.md    # 30 viva voce examination Q&A dossier
 │   ├── ACADEMIC_REPORT.md    # 360° academic report & mathematical proofs
-│   ├── VIVA_VOCE_GUIDE.md    # 25+ viva voce examination Q&A dossier
-│   └── USER_MANUAL.md        # Complete operational handbook
+│   └── USER_MANUAL.md        # Complete operational handbook & deployment guide
 ├── scripts/                  # Cross-platform execution launchers
+│   ├── run-all-tests.bat / .sh # Master test suite runners
+│   ├── run-benchmark.bat / .sh # Benchmark suite runners
 │   ├── run-server.bat / .sh  # Server launcher
 │   └── run-client.bat / .sh  # Desktop client launcher
 ├── secure-chat-common/       # Cryptographic engine, benchmark runner, DTOs, and interfaces
