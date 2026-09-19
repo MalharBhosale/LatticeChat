@@ -38,17 +38,20 @@ public class MessageService {
     private final UserKeyBundleRepository userKeyBundleRepository;
     private final AuditLogRepository auditLogRepository;
     private final SignatureService signatureService;
+    private final NotificationService notificationService;
 
     public MessageService(MessageRepository messageRepository,
                           UserRepository userRepository,
                           UserKeyBundleRepository userKeyBundleRepository,
                           AuditLogRepository auditLogRepository,
-                          SignatureService signatureService) {
+                          SignatureService signatureService,
+                          NotificationService notificationService) {
         this.messageRepository = messageRepository;
         this.userRepository = userRepository;
         this.userKeyBundleRepository = userKeyBundleRepository;
         this.auditLogRepository = auditLogRepository;
         this.signatureService = signatureService;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -120,7 +123,14 @@ public class MessageService {
         recordAuditLog(sender, AuditEventType.MESSAGE_SENT, "Encrypted message sent to " + recipient.getUsername());
         log.info("Message [{}] stored successfully from '{}' to '{}'", saved.getMessageId(), senderUsername, recipient.getUsername());
 
-        return mapToDto(saved);
+        EncryptedMessageDto dto = mapToDto(saved);
+        try {
+            notificationService.notifyNewMessage(recipient.getUsername(), dto);
+        } catch (Exception e) {
+            log.warn("Failed to deliver real-time WebSocket push to '{}': {}", recipient.getUsername(), e.getMessage());
+        }
+
+        return dto;
     }
 
     /**
@@ -184,6 +194,12 @@ public class MessageService {
         }
 
         MessageEntity saved = messageRepository.save(message);
+        try {
+            notificationService.notifyReceipt(message.getSender().getUsername(), message.getMessageId(), saved.getStatus().name());
+        } catch (Exception e) {
+            log.warn("Failed to deliver real-time receipt to '{}': {}", message.getSender().getUsername(), e.getMessage());
+        }
+
         return mapToDto(saved);
     }
 
